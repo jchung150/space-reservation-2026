@@ -43,7 +43,7 @@ export async function GET(req: Request) {
   const { data: raw, error } = await supabaseAdmin
     .from('tasks')
     .select(`
-      id, title, priority, created_at, updated_at, task_job_type,
+      id, title, priority, created_at, updated_at, task_job_type, reference_images,
       staff:assignee_id(name, job_types),
       reports(
         id, memo, reviewed_at,
@@ -103,6 +103,14 @@ export async function GET(req: Request) {
       reviewer:         approvedReport?.admins?.name ?? '관리자',
       memo:             approvedReport?.memo ?? '',
       photos,
+      referenceImages: await Promise.all(
+        ((t.reference_images ?? []) as string[]).map(async (path: string) => {
+          const { data: signed } = await supabaseAdmin.storage
+            .from('task-references')
+            .createSignedUrl(path, 3600);
+          return signed?.signedUrl ?? null;
+        })
+      ).then(urls => urls.filter(Boolean) as string[]),
       hasApprovedReport: !!approvedReport,
     };
   }));

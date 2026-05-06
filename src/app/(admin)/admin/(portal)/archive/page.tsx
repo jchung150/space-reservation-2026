@@ -99,7 +99,7 @@ function DetailModal({ item, onClose }: { item: any; onClose: () => void }) {
           {photos.length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, marginBottom: 10, letterSpacing: '0.04em' }}>
-                첨부 사진 ({photos.length}장)
+                직원 제출 사진 ({photos.length}장)
               </div>
 
               {/* 메인 사진 */}
@@ -165,6 +165,24 @@ function DetailModal({ item, onClose }: { item: any; onClose: () => void }) {
                       : null
                     }
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 참고 이미지 */}
+          {(item.referenceImages ?? []).length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, marginBottom: 8, letterSpacing: '0.04em' }}>
+                참고 이미지 ({item.referenceImages.length}장)
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {item.referenceImages.map((url: string, i: number) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'block', width: 80, height: 80, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.border}`, flexShrink: 0 }}>
+                    <img src={url} alt={`참고 이미지 ${i + 1}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </a>
                 ))}
               </div>
             </div>

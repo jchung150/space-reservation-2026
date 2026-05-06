@@ -46,7 +46,7 @@ export async function GET() {
   const assigned      = tasks.length;
   const pendingReview = tasks.filter(t => t.status === 'pending_review').length;
   const done          = tasks.filter(t => t.status === 'done').length;
-  const rate          = assigned > 0 ? Math.round(((done + pendingReview) / assigned) * 100) : null;
+  const rate          = assigned > 0 ? Math.round((done / assigned) * 100) : null;
 
   const jobTypes: string[] = staff.job_types ?? [];
   const dept = jobTypes.map((jt: string) => DEPT_MAP[jt] ?? jt).join('·') || '—';
