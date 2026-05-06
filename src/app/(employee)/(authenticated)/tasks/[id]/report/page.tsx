@@ -13,7 +13,10 @@ const MAX_PHOTOS = 5;
 const MAX_MEMO   = 500;
 const MIN_MEMO   = 10;
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
-const VALID_MIME = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/heif']);
+// iOS Safari는 HEIC를 'image/heic' 대신 빈 문자열로 반환하는 경우가 있어 startsWith로 검사
+const isValidImage = (file: File) =>
+  file.type.startsWith('image/') ||
+  ['jpg','jpeg','png','heic','heif','webp'].includes(file.name.split('.').pop()?.toLowerCase() ?? '');
 
 /* ── 사진 아이템 타입 ─────────────────────────────────────────────── */
 interface PhotoItem {
@@ -115,8 +118,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           break;
         }
 
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-        if (!VALID_MIME.has(file.type) && !['heic', 'heif'].includes(ext)) {
+        if (!isValidImage(file)) {
           setPhotoError('JPG, PNG, HEIC 형식의 파일만 업로드할 수 있습니다.');
           continue;
         }
@@ -641,10 +643,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       <input
         ref={galleryRef}
         type="file"
-        accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
+        accept="image/*"
         multiple
         onChange={(e) => handleFiles(e.target.files)}
-        style={{ display: 'none' }}
+        style={{ position: 'fixed', top: -100, left: -100, opacity: 0, width: 1, height: 1 }}
         aria-hidden="true"
       />
 
@@ -652,10 +654,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       <input
         ref={cameraRef}
         type="file"
-        accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
+        accept="image/*"
         capture="environment"
         onChange={(e) => handleFiles(e.target.files)}
-        style={{ display: 'none' }}
+        style={{ position: 'fixed', top: -100, left: -100, opacity: 0, width: 1, height: 1 }}
         aria-hidden="true"
       />
     </div>
