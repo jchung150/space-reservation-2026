@@ -45,33 +45,41 @@ export async function POST(
     return NextResponse.json({ ok: true, count: 0 });
   }
 
-  const inserted: { report_id: string; storage_path: string; file_name: string; sort_order: number }[] = [];
+  const inserted: { report_id: string; storage_path: string; file_name: string; file_size_bytes: number; sort_order: number }[] = [];
 
   for (let i = 0; i < files.length; i++) {
-    const file   = files[i];
-    const ext    = file.type === 'image/png' ? 'png' : file.type === 'image/heic' ? 'heic' : 'jpg';
-    const path   = `${reportId}/photo-${i}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const file        = files[i];
+    const fileSize    = file.size;
+    const nameParts   = file.name.split('.');
+    const nameExt     = nameParts.length > 1 ? nameParts.pop()!.toLowerCase() : '';
+    const ext         = nameExt || (file.type.startsWith('image/') ? file.type.split('/')[1] : 'jpg');
+    const contentType = file.type || `image/${ext}`;
+    const path        = `${reportId}/photo-${i}.${ext}`;
+    const buffer      = Buffer.from(await file.arrayBuffer());
 
     const { error: uploadErr } = await supabaseAdmin.storage
       .from(BUCKET)
-      .upload(path, buffer, { contentType: file.type, upsert: true });
+      .upload(path, buffer, { contentType, upsert: true });
 
     if (uploadErr) {
       console.error(`[photos] upload failed: ${path}`, uploadErr.message);
-      continue; // 실패한 사진은 건너뜀
+      continue;
     }
 
     inserted.push({
-      report_id:    reportId,
-      storage_path: path,
-      file_name:    file.name || `photo-${i}`,
-      sort_order:   i,
+      report_id:       reportId,
+      storage_path:    path,
+      file_name:       file.name || `photo-${i}.${ext}`,
+      file_size_bytes: fileSize,
+      sort_order:      i,
     });
   }
 
   if (inserted.length > 0) {
-    await supabaseAdmin.from('report_photos').insert(inserted);
+    const { error: insertErr } = await supabaseAdmin.from('report_photos').insert(inserted);
+    if (insertErr) {
+      console.error('[photos] insert failed:', insertErr.message);
+    }
   }
 
   return NextResponse.json({ ok: true, count: inserted.length });

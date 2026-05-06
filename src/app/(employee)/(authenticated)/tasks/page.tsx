@@ -69,7 +69,7 @@ function TasksPageContent() {
     VALID_PRIORITY.has(searchParams.get('priority') ?? '') ? searchParams.get('priority')! : 'all'
   ) as Priority | 'all';
   const statusFilter = (
-    VALID_STATUS.has(searchParams.get('status') ?? '') ? searchParams.get('status')! : 'todo'
+    VALID_STATUS.has(searchParams.get('status') ?? '') ? searchParams.get('status')! : 'all'
   ) as TaskStatus | 'all';
 
   function setFilter(key: string, value: string) {
