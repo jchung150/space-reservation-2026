@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCR-A04 업무 생성/편집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: oklch(95% 0.005 220); }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(80% 0.01 240); border-radius: 3px; }
+  select { appearance: none; -webkit-appearance: none; }
+  input[type="date"], input[type="time"] { appearance: none; -webkit-appearance: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const C = {
+  primary:   'oklch(55% 0.14 195)',
+  primaryBg: 'oklch(93% 0.06 195)',
+  danger:    'oklch(62% 0.16 25)',
+  dangerBg:  'oklch(95% 0.04 25)',
+  success:   'oklch(62% 0.15 160)',
+  successBg: 'oklch(93% 0.05 160)',
+  warning:   'oklch(65% 0.16 65)',
+  warningBg: 'oklch(95% 0.05 85)',
+  border:    'oklch(88% 0.008 240)',
+  cardBg:    '#ffffff',
+  pageBg:    'oklch(95% 0.005 220)',
+  sidebar:   'oklch(16% 0.02 250)',
+  textPri:   'oklch(18% 0.01 260)',
+  textSec:   'oklch(50% 0.01 260)',
+  textMuted: 'oklch(65% 0.01 260)',
+};
+
+const NAV_ITEMS = [
+  { key:'dashboard', label:'대시보드' },
+  { key:'tasks',     label:'업무 관리' },
+  { key:'reports',   label:'완료 보고 검토', badge: 7 },
+  { key:'staff',     label:'인력 관리' },
+  { key:'archive',   label:'아카이브' },
+];
+const NAV_ICONS = {
+  dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  tasks:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
+  reports:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  staff:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  archive:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
+};
+
+const EMPLOYEES = {
+  보안:       ['김보안', '이보안'],
+  청소:       ['이청소', '최청소'],
+  시설유지보수: ['박유지', '정유지'],
+};
+const DAYS_KR = ['월', '화', '수', '목', '금', '토', '일'];
+
+// ── 사이드바 ──────────────────────────────────────────
+function Sidebar({ active }) {
+  return (
+    <div style={{ width:220, flexShrink:0, background:C.sidebar, display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 }}>
+      <div style={{ padding:'24px 20px 20px', borderBottom:'1px solid oklch(24% 0.02 250)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>영준피엠씨</div>
+            <div style={{ fontSize:10, color:'oklch(50% 0.02 250)', marginTop:1 }}>관리자 포털</div>
+          </div>
+        </div>
+      </div>
+      <nav style={{ flex:1, padding:'12px 10px' }}>
+        {NAV_ITEMS.map(item => {
+          const isActive = item.key === active;
+          return (
+            <button key={item.key} style={{
+              width:'100%', display:'flex', alignItems:'center', gap:10,
+              padding:'10px 12px', borderRadius:8, border:'none', cursor:'pointer',
+              background: isActive ? C.primary : 'transparent',
+              color: isActive ? '#fff' : 'oklch(60% 0.02 250)',
+              fontSize:13, fontWeight: isActive ? 600 : 400,
+              fontFamily:"'Noto Sans KR', sans-serif",
+              marginBottom:2, textAlign:'left', transition:'150ms ease',
+            }}>
+              {NAV_ICONS[item.key]}{item.label}
+              {item.badge && <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, background: isActive ? 'rgba(255,255,255,0.25)' : C.danger, color:'#fff', borderRadius:10, padding:'1px 6px' }}>{item.badge}</span>}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ padding:'16px 16px 20px', borderTop:'1px solid oklch(24% 0.02 250)', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:'50%', background:'oklch(30% 0.03 250)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'oklch(70% 0.02 250)', flexShrink:0 }}>박</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#fff' }}>박관리</div>
+          <div style={{ fontSize:11, color:'oklch(45% 0.02 250)' }}>관리자</div>
+        </div>
+        <button style={{ background:'none', border:'none', cursor:'pointer', color:'oklch(40% 0.02 250)', padding:4, display:'flex' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 공통 UI ───────────────────────────────────────────
+function Label({ children, required }) {
+  return (
+    <div style={{ fontSize:13, fontWeight:600, color:C.textPri, marginBottom:7, display:'flex', alignItems:'center', gap:4 }}>
+      {children}
+      {required && <span style={{ color:C.danger, fontSize:13 }}>*</span>}
+    </div>
+  );
+}
+function ErrorMsg({ msg }) {
+  return msg ? (
+    <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:5, fontSize:12, color:C.danger, fontWeight:600 }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {msg}
+    </div>
+  ) : null;
+}
+function SectionCard({ title, children }) {
+  return (
+    <div style={{ background:C.cardBg, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden', marginBottom:16 }}>
+      <div style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, background:C.pageBg }}>
+        <span style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{title}</span>
+      </div>
+      <div style={{ padding:'20px' }}>{children}</div>
+    </div>
+  );
+}
+function TextInput({ value, onChange, placeholder, error, type='text' }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      style={{
+        width:'100%', padding:'10px 12px', borderRadius:8,
+        border:`1.5px solid ${error ? C.danger : focused ? C.primary : C.border}`,
+        background: focused ? '#fff' : C.pageBg,
+        fontSize:14, color:C.textPri, outline:'none',
+        fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+      }}
+    />
+  );
+}
+function Toggle({ checked, onChange }) {
+  return (
+    <div onClick={onChange} style={{
+      width:44, height:24, borderRadius:12,
+      background: checked ? C.primary : C.border,
+      position:'relative', cursor:'pointer', transition:'200ms ease', flexShrink:0,
+    }}>
+      <div style={{
+        position:'absolute', top:3, left: checked ? 23 : 3,
+        width:18, height:18, borderRadius:'50%',
+        background:'#fff', transition:'200ms ease',
+        boxShadow:'0 1px 3px oklch(0% 0 0 / 20%)',
+      }} />
+    </div>
+  );
+}
+function Checkbox({ checked, onChange }) {
+  return (
+    <div onClick={onChange} style={{
+      width:16, height:16, borderRadius:4, cursor:'pointer', flexShrink:0,
+      border:`2px solid ${checked ? C.primary : C.border}`,
+      background: checked ? C.primary : '#fff',
+      display:'flex', alignItems:'center', justifyContent:'center', transition:'150ms ease',
+    }}>
+      {checked && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+    </div>
+  );
+}
+
+// ── 폼 메인 ──────────────────────────────────────────
+function TaskForm({ isEdit = false }) {
+  const [title, setTitle]           = useState(isEdit ? '1층 로비 소화기 점검' : '');
+  const [desc, setDesc]             = useState(isEdit ? '1층 로비 소화기 3개의 압력 게이지를 확인하고 이상 유무를 보고하세요.' : '');
+  const [priority, setPriority]     = useState(isEdit ? 'high' : 'medium');
+  const [dueDate, setDueDate]       = useState(isEdit ? '2026-04-30' : '');
+  const [dueTime, setDueTime]       = useState(isEdit ? '14:00' : '');
+  const [dept, setDept]             = useState(isEdit ? '보안' : '보안');
+  const [assignees, setAssignees]   = useState(new Set(isEdit ? ['김보안'] : []));
+  const [repeat, setRepeat]         = useState(false);
+  const [repeatType, setRepeatType] = useState('매주');
+  const [repeatDays, setRepeatDays] = useState(new Set());
+  const [repeatDate, setRepeatDate] = useState('1');
+  const [dragOver, setDragOver]     = useState(false);
+  const [errors, setErrors]         = useState({});
+  const [submitted, setSubmitted]   = useState(false);
+
+  const PRIORITY_OPTIONS = [
+    { key:'high',   label:'높음', color: C.danger },
+    { key:'medium', label:'보통', color: C.warning },
+    { key:'low',    label:'낮음', color: C.success },
+  ];
+
+  function toggleAssignee(name) {
+    const s = new Set(assignees);
+    s.has(name) ? s.delete(name) : s.add(name);
+    setAssignees(s);
+  }
+  function toggleDay(d) {
+    const s = new Set(repeatDays);
+    s.has(d) ? s.delete(d) : s.add(d);
+    setRepeatDays(s);
+  }
+
+  function validate() {
+    const e = {};
+    if (!title.trim())    e.title    = '업무명을 입력해주세요';
+    if (!desc.trim())     e.desc     = '업무 설명을 입력해주세요';
+    if (!dueDate)         e.dueDate  = '마감일을 선택해주세요';
+    if (!dueTime)         e.dueTime  = '마감 시간을 선택해주세요';
+    if (assignees.size === 0) e.assignees = '배정 직원을 1명 이상 선택해주세요';
+    return e;
+  }
+
+  function handleSave() {
+    const e = validate();
+    setErrors(e);
+    if (Object.keys(e).length === 0) setSubmitted(true);
+  }
+
+  const inputStyle = (err, focused) => ({
+    width:'100%', padding:'10px 12px', borderRadius:8,
+    border:`1.5px solid ${err ? C.danger : C.border}`,
+    background: C.pageBg, fontSize:14, color:C.textPri,
+    outline:'none', fontFamily:"'Noto Sans KR', sans-serif",
+    transition:'150ms ease',
+  });
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', minWidth:0 }}>
+      {/* 헤더 */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <button style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:C.cardBg, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.textSec }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div>
+            <h1 style={{ fontSize:22, fontWeight:700, color:C.textPri }}>{isEdit ? '업무 수정' : '새 업무 생성'}</h1>
+            <div style={{ fontSize:13, color:C.textMuted, marginTop:2 }}>{isEdit ? '업무 내용을 수정하세요' : '새로운 업무를 생성하고 직원에게 배정하세요'}</div>
+          </div>
+        </div>
+        {/* 모드 토글 (데모용) */}
+        <div style={{ display:'flex', gap:0, background:C.pageBg, border:`1px solid ${C.border}`, borderRadius:8, padding:3 }}>
+          {[false, true].map(edit => (
+            <button key={String(edit)} onClick={() => {}} style={{
+              padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer',
+              fontSize:12, fontWeight:600,
+              background: isEdit === edit ? C.primary : 'transparent',
+              color: isEdit === edit ? '#fff' : C.textSec,
+              fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+            }}>{edit ? '편집 모드' : '신규 생성'}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ maxWidth:720, margin:'0 auto' }}>
+
+        {/* 저장 완료 배너 */}
+        {submitted && (
+          <div style={{
+            display:'flex', alignItems:'center', gap:10,
+            background:C.successBg, border:`1px solid oklch(75% 0.1 160)`,
+            borderRadius:10, padding:'12px 16px', marginBottom:16,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <span style={{ fontSize:13, fontWeight:600, color:C.success }}>업무가 성공적으로 {isEdit ? '수정' : '생성'}되었습니다.</span>
+            <button onClick={() => setSubmitted(false)} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', color:C.success, fontSize:16, lineHeight:1 }}>×</button>
+          </div>
+        )}
+
+        {/* ── 기본 정보 ── */}
+        <SectionCard title="기본 정보">
+          {/* 업무명 */}
+          <div style={{ marginBottom:16 }}>
+            <Label required>업무명</Label>
+            <TextInput value={title} onChange={e => setTitle(e.target.value)} placeholder="업무명을 입력하세요" error={errors.title} />
+            <ErrorMsg msg={errors.title} />
+          </div>
+
+          {/* 업무 설명 */}
+          <div style={{ marginBottom:16 }}>
+            <Label required>업무 설명</Label>
+            <FocusTextarea value={desc} onChange={e => setDesc(e.target.value)}
+              placeholder="직원에게 전달할 업무 지시사항을 입력하세요"
+              error={errors.desc} rows={4}
+            />
+            <ErrorMsg msg={errors.desc} />
+          </div>
+
+          {/* 우선순위 */}
+          <div style={{ marginBottom:16 }}>
+            <Label required>우선순위</Label>
+            <div style={{ display:'flex', gap:0, background:C.pageBg, border:`1px solid ${C.border}`, borderRadius:8, padding:3, width:'fit-content' }}>
+              {PRIORITY_OPTIONS.map(opt => (
+                <button key={opt.key} onClick={() => setPriority(opt.key)} style={{
+                  padding:'8px 20px', borderRadius:6, border:'none', cursor:'pointer',
+                  fontSize:13, fontWeight:700,
+                  background: priority === opt.key ? opt.color : 'transparent',
+                  color: priority === opt.key ? '#fff' : C.textSec,
+                  fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+                }}>{opt.label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* 마감일시 */}
+          <div>
+            <Label required>마감일시</Label>
+            <div style={{ display:'flex', gap:10 }}>
+              <div style={{ flex:1 }}>
+                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                  style={{
+                    width:'100%', padding:'10px 12px', borderRadius:8,
+                    border:`1.5px solid ${errors.dueDate ? C.danger : C.border}`,
+                    background:C.pageBg, fontSize:14, color:C.textPri,
+                    outline:'none', fontFamily:"'Noto Sans KR', sans-serif",
+                  }}
+                />
+                <ErrorMsg msg={errors.dueDate} />
+              </div>
+              <div style={{ width:140 }}>
+                <input type="time" value={dueTime} onChange={e => setDueTime(e.target.value)}
+                  style={{
+                    width:'100%', padding:'10px 12px', borderRadius:8,
+                    border:`1.5px solid ${errors.dueTime ? C.danger : C.border}`,
+                    background:C.pageBg, fontSize:14, color:C.textPri,
+                    outline:'none', fontFamily:"'Noto Sans KR', sans-serif",
+                  }}
+                />
+                <ErrorMsg msg={errors.dueTime} />
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* ── 배정 ── */}
+        <SectionCard title="배정">
+          {/* 직군 */}
+          <div style={{ marginBottom:16 }}>
+            <Label required>직군</Label>
+            <div style={{ position:'relative', width:200 }}>
+              <select value={dept} onChange={e => { setDept(e.target.value); setAssignees(new Set()); }}
+                style={{
+                  width:'100%', padding:'10px 36px 10px 12px', borderRadius:8,
+                  border:`1.5px solid ${C.border}`, background:C.pageBg,
+                  fontSize:14, color:C.textPri, cursor:'pointer',
+                  fontFamily:"'Noto Sans KR', sans-serif", outline:'none',
+                }}>
+                {Object.keys(EMPLOYEES).map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* 배정 직원 */}
+          <div>
+            <Label required>배정 직원</Label>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:10 }}>
+              {(EMPLOYEES[dept] || []).map(name => {
+                const checked = assignees.has(name);
+                return (
+                  <label key={name} onClick={() => toggleAssignee(name)} style={{
+                    display:'flex', alignItems:'center', gap:8,
+                    padding:'9px 14px', borderRadius:8, cursor:'pointer',
+                    border:`1.5px solid ${checked ? C.primary : C.border}`,
+                    background: checked ? C.primaryBg : C.pageBg,
+                    transition:'150ms ease', userSelect:'none',
+                  }}>
+                    <div style={{ width:28, height:28, borderRadius:'50%', background: checked ? C.primary : C.border, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'#fff', flexShrink:0 }}>
+                      {name[0]}
+                    </div>
+                    <span style={{ fontSize:13, fontWeight:600, color: checked ? C.primary : C.textPri }}>{name}</span>
+                    {checked && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </label>
+                );
+              })}
+            </div>
+            <ErrorMsg msg={errors.assignees} />
+          </div>
+        </SectionCard>
+
+        {/* ── 반복 설정 ── */}
+        <SectionCard title="반복 설정">
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: repeat ? 16 : 0 }}>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:C.textPri }}>반복 업무로 설정</div>
+              <div style={{ fontSize:12, color:C.textMuted, marginTop:2 }}>설정 시 자동으로 반복 생성됩니다</div>
+            </div>
+            <Toggle checked={repeat} onChange={() => setRepeat(v => !v)} />
+          </div>
+
+          {repeat && (
+            <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:16 }}>
+              {/* 반복 주기 */}
+              <div style={{ marginBottom:16 }}>
+                <Label>반복 주기</Label>
+                <div style={{ display:'flex', gap:0, background:C.pageBg, border:`1px solid ${C.border}`, borderRadius:8, padding:3, width:'fit-content' }}>
+                  {['매일','매주','매월'].map(t => (
+                    <button key={t} onClick={() => setRepeatType(t)} style={{
+                      padding:'7px 18px', borderRadius:6, border:'none', cursor:'pointer',
+                      fontSize:13, fontWeight:600,
+                      background: repeatType === t ? C.primary : 'transparent',
+                      color: repeatType === t ? '#fff' : C.textSec,
+                      fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+                    }}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 매주: 요일 선택 */}
+              {repeatType === '매주' && (
+                <div>
+                  <Label>반복 요일</Label>
+                  <div style={{ display:'flex', gap:8 }}>
+                    {DAYS_KR.map(d => {
+                      const on = repeatDays.has(d);
+                      return (
+                        <button key={d} onClick={() => toggleDay(d)} style={{
+                          width:38, height:38, borderRadius:'50%', border:`1.5px solid ${on ? C.primary : C.border}`,
+                          background: on ? C.primary : C.pageBg, color: on ? '#fff' : C.textSec,
+                          fontSize:13, fontWeight:700, cursor:'pointer', transition:'150ms ease',
+                          fontFamily:"'Noto Sans KR', sans-serif",
+                        }}>{d}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 매월: 날짜 입력 */}
+              {repeatType === '매월' && (
+                <div>
+                  <Label>반복 날짜</Label>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:14, color:C.textSec }}>매월</span>
+                    <input type="number" min="1" max="31" value={repeatDate} onChange={e => setRepeatDate(e.target.value)}
+                      style={{
+                        width:72, padding:'9px 12px', borderRadius:8,
+                        border:`1.5px solid ${C.border}`, background:C.pageBg,
+                        fontSize:14, color:C.textPri, textAlign:'center',
+                        outline:'none', fontFamily:"'Noto Sans KR', sans-serif",
+                      }}
+                    />
+                    <span style={{ fontSize:14, color:C.textSec }}>일</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* ── 참고 자료 ── */}
+        <SectionCard title="참고 자료 (선택)">
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); }}
+            style={{
+              border:`2px dashed ${dragOver ? C.primary : C.border}`,
+              borderRadius:10, padding:'32px 24px',
+              background: dragOver ? C.primaryBg : C.pageBg,
+              display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10,
+              cursor:'pointer', transition:'150ms ease', textAlign:'center',
+            }}
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={dragOver ? C.primary : C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color: dragOver ? C.primary : C.textPri }}>파일을 드래그하거나 클릭하여 업로드</div>
+              <div style={{ fontSize:12, color:C.textMuted, marginTop:4 }}>사진, PDF, 문서 등 · 최대 10MB</div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* ── 하단 버튼 ── */}
+        <div style={{ display:'flex', gap:12, justifyContent:'flex-end', paddingBottom:40 }}>
+          <button style={{
+            padding:'11px 28px', borderRadius:8,
+            border:`1.5px solid ${C.border}`, background:'#fff',
+            fontSize:14, fontWeight:600, color:C.textSec, cursor:'pointer',
+            fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+          }}>취소</button>
+          <button onClick={handleSave} style={{
+            padding:'11px 32px', borderRadius:8, border:'none',
+            background:C.primary, color:'#fff',
+            fontSize:14, fontWeight:700, cursor:'pointer',
+            fontFamily:"'Noto Sans KR', sans-serif",
+            boxShadow:`0 2px 8px oklch(55% 0.14 195 / 30%)`,
+            transition:'150ms ease',
+          }}>{isEdit ? '수정 저장' : '업무 생성'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// textarea with focus border
+function FocusTextarea({ value, onChange, placeholder, error, rows = 4 }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows}
+      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      style={{
+        width:'100%', padding:'10px 12px', borderRadius:8, resize:'vertical',
+        border:`1.5px solid ${error ? C.danger : focused ? C.primary : C.border}`,
+        background: focused ? '#fff' : 'oklch(95% 0.005 220)',
+        fontSize:14, color:'oklch(18% 0.01 260)', lineHeight:1.65,
+        outline:'none', fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+      }}
+    />
+  );
+}
+
+function App() {
+  const [isEdit, setIsEdit] = useState(false);
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar active="tasks" />
+      <TaskForm isEdit={isEdit} key={String(isEdit)} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCR-A03 업무 목록 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: oklch(95% 0.005 220); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(80% 0.01 240); border-radius: 3px; }
+  select { appearance: none; -webkit-appearance: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const C = {
+  primary:   'oklch(55% 0.14 195)',
+  primaryBg: 'oklch(93% 0.06 195)',
+  danger:    'oklch(62% 0.16 25)',
+  dangerBg:  'oklch(95% 0.04 25)',
+  success:   'oklch(62% 0.15 160)',
+  successBg: 'oklch(93% 0.05 160)',
+  warning:   'oklch(65% 0.16 65)',
+  warningBg: 'oklch(95% 0.05 85)',
+  pending:   'oklch(58% 0.14 280)',
+  pendingBg: 'oklch(94% 0.04 280)',
+  rework:    'oklch(62% 0.16 25)',
+  reworkBg:  'oklch(95% 0.04 25)',
+  border:    'oklch(88% 0.008 240)',
+  cardBg:    '#ffffff',
+  pageBg:    'oklch(95% 0.005 220)',
+  sidebar:   'oklch(16% 0.02 250)',
+  textPri:   'oklch(18% 0.01 260)',
+  textSec:   'oklch(50% 0.01 260)',
+  textMuted: 'oklch(65% 0.01 260)',
+};
+
+const PRIORITY_MAP = {
+  high:   { label:'높음', color: C.danger,  bg: C.dangerBg },
+  medium: { label:'보통', color: C.warning, bg: C.warningBg },
+  low:    { label:'낮음', color: C.success, bg: C.successBg },
+};
+const STATUS_MAP = {
+  todo:       { label:'미완료',    color: C.textSec,  bg: C.pageBg },
+  inprogress: { label:'진행 중',   color: C.primary,  bg: C.primaryBg },
+  pending:    { label:'완료 대기', color: C.pending,  bg: C.pendingBg },
+  done:       { label:'완료',      color: C.success,  bg: C.successBg },
+  rework:     { label:'재작업 필요', color: C.danger, bg: C.dangerBg },
+};
+const DEPT_COLOR = { 보안:'oklch(65% 0.16 65)', 청소:'oklch(62% 0.15 160)', 시설:'oklch(55% 0.14 195)' };
+
+const TASKS = [
+  { id:1, name:'1층 로비 소화기 점검', employee:'김보안', dept:'보안', priority:'high',   due:'오늘 14:00',  status:'pending' },
+  { id:2, name:'지하 1층 청소',         employee:'이청소', dept:'청소', priority:'medium', due:'오늘 18:00',  status:'inprogress' },
+  { id:3, name:'3층 복도 전구 교체',    employee:'박유지', dept:'시설', priority:'low',    due:'내일 10:00',  status:'rework' },
+  { id:4, name:'주차장 CCTV 점검',      employee:'김보안', dept:'보안', priority:'high',   due:'모레 09:00',  status:'todo' },
+  { id:5, name:'옥상 배수구 청소',      employee:'최청소', dept:'청소', priority:'medium', due:'04/30',       status:'todo' },
+];
+
+const NAV_ITEMS = [
+  { key:'dashboard', label:'대시보드' },
+  { key:'tasks',     label:'업무 관리' },
+  { key:'reports',   label:'완료 보고 검토', badge: 7 },
+  { key:'staff',     label:'인력 관리' },
+  { key:'archive',   label:'아카이브' },
+];
+
+const NAV_ICONS = {
+  dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  tasks:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
+  reports:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>,
+  staff:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  archive:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
+};
+
+// ── 사이드바 ──────────────────────────────────────────
+function Sidebar({ active }) {
+  return (
+    <div style={{ width:220, flexShrink:0, background:C.sidebar, display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 }}>
+      <div style={{ padding:'24px 20px 20px', borderBottom:'1px solid oklch(24% 0.02 250)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>영준피엠씨</div>
+            <div style={{ fontSize:10, color:'oklch(50% 0.02 250)', marginTop:1 }}>관리자 포털</div>
+          </div>
+        </div>
+      </div>
+      <nav style={{ flex:1, padding:'12px 10px' }}>
+        {NAV_ITEMS.map(item => {
+          const isActive = item.key === active;
+          return (
+            <button key={item.key} style={{
+              width:'100%', display:'flex', alignItems:'center', gap:10,
+              padding:'10px 12px', borderRadius:8, border:'none', cursor:'pointer',
+              background: isActive ? C.primary : 'transparent',
+              color: isActive ? '#fff' : 'oklch(60% 0.02 250)',
+              fontSize:13, fontWeight: isActive ? 600 : 400,
+              fontFamily:"'Noto Sans KR', sans-serif",
+              marginBottom:2, textAlign:'left', transition:'150ms ease',
+            }}>
+              {NAV_ICONS[item.key]}
+              {item.label}
+              {item.badge && (
+                <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, background: isActive ? 'rgba(255,255,255,0.25)' : C.danger, color:'#fff', borderRadius:10, padding:'1px 6px' }}>
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ padding:'16px 16px 20px', borderTop:'1px solid oklch(24% 0.02 250)', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:'50%', background:'oklch(30% 0.03 250)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'oklch(70% 0.02 250)', flexShrink:0 }}>박</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#fff' }}>박관리</div>
+          <div style={{ fontSize:11, color:'oklch(45% 0.02 250)' }}>관리자</div>
+        </div>
+        <button style={{ background:'none', border:'none', cursor:'pointer', color:'oklch(40% 0.02 250)', padding:4, display:'flex', alignItems:'center' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 필터 드롭다운 ─────────────────────────────────────
+function FilterSelect({ value, onChange, options, minWidth = 120 }) {
+  return (
+    <div style={{ position:'relative', display:'inline-flex', alignItems:'center' }}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{
+        padding:'8px 32px 8px 12px', borderRadius:8,
+        border:`1.5px solid ${C.border}`,
+        background:C.cardBg, color:C.textPri,
+        fontSize:13, fontWeight:600, cursor:'pointer',
+        fontFamily:"'Noto Sans KR', sans-serif",
+        minWidth, outline:'none',
+        transition:'150ms ease',
+      }}>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        style={{ position:'absolute', right:10, pointerEvents:'none' }}>
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+  );
+}
+
+// ── 체크박스 ─────────────────────────────────────────
+function Checkbox({ checked, onChange, indeterminate }) {
+  return (
+    <div onClick={onChange} style={{
+      width:16, height:16, borderRadius:4, cursor:'pointer', flexShrink:0,
+      border:`2px solid ${checked || indeterminate ? C.primary : C.border}`,
+      background: checked || indeterminate ? C.primary : '#fff',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      transition:'150ms ease',
+    }}>
+      {checked && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+      {indeterminate && !checked && <div style={{ width:8, height:2, background:'white', borderRadius:1 }} />}
+    </div>
+  );
+}
+
+// ── 메인 콘텐츠 ──────────────────────────────────────
+function TaskList() {
+  const [search, setSearch]         = useState('');
+  const [deptFilter, setDeptFilter] = useState('전체');
+  const [prioFilter, setPrioFilter] = useState('전체');
+  const [statFilter, setStatFilter] = useState('전체');
+  const [periFilter, setPeriFilter] = useState('전체');
+  const [selected, setSelected]     = useState(new Set());
+  const [page, setPage]             = useState(1);
+  const TOTAL = 42, PER_PAGE = 10;
+  const totalPages = Math.ceil(TOTAL / PER_PAGE);
+
+  const allChecked = selected.size === TASKS.length;
+  const someChecked = selected.size > 0 && !allChecked;
+
+  function toggleAll() {
+    if (allChecked) setSelected(new Set());
+    else setSelected(new Set(TASKS.map(t => t.id)));
+  }
+  function toggleOne(id) {
+    const s = new Set(selected);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setSelected(s);
+  }
+
+  const filteredTasks = TASKS.filter(t => {
+    const deptMap = { 보안:'보안', 청소:'청소', '시설유지보수':'시설' };
+    const matchSearch = !search || t.name.includes(search) || t.employee.includes(search);
+    const matchDept = deptFilter === '전체' || t.dept === deptMap[deptFilter];
+    const matchPrio = prioFilter === '전체' || PRIORITY_MAP[t.priority].label === prioFilter;
+    const matchStat = statFilter === '전체' || STATUS_MAP[t.status].label === statFilter;
+    return matchSearch && matchDept && matchPrio && matchStat;
+  });
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', minWidth:0 }}>
+      {/* 헤더 */}
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24 }}>
+        <div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:C.textPri }}>업무 관리</h1>
+          <div style={{ fontSize:13, color:C.textMuted, marginTop:3 }}>전체 업무를 조회하고 관리하세요</div>
+        </div>
+        <button style={{
+          display:'flex', alignItems:'center', gap:6,
+          padding:'10px 18px', borderRadius:8, border:'none',
+          background:C.primary, color:'#fff',
+          fontSize:14, fontWeight:700, cursor:'pointer',
+          fontFamily:"'Noto Sans KR', sans-serif",
+          boxShadow:`0 2px 8px oklch(55% 0.14 195 / 30%)`,
+          transition:'150ms ease',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          새 업무 생성
+        </button>
+      </div>
+
+      {/* 필터 바 */}
+      <div style={{ background:C.cardBg, borderRadius:12, border:`1px solid ${C.border}`, padding:'14px 16px', marginBottom:16, display:'flex', flexWrap:'wrap', gap:10, alignItems:'center' }}>
+        {/* 검색 */}
+        <div style={{ position:'relative', flex:'1 1 200px', minWidth:200 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="업무명 또는 직원 이름 검색"
+            style={{
+              width:'100%', padding:'8px 12px 8px 34px',
+              borderRadius:8, border:`1.5px solid ${C.border}`,
+              fontSize:13, color:C.textPri, outline:'none',
+              fontFamily:"'Noto Sans KR', sans-serif",
+              background:C.pageBg, transition:'150ms ease',
+            }}
+            onFocus={e => e.target.style.borderColor = C.primary}
+            onBlur={e => e.target.style.borderColor = C.border}
+          />
+        </div>
+        <FilterSelect value={deptFilter} onChange={setDeptFilter} options={['전체','보안','청소','시설유지보수']} minWidth={130} />
+        <FilterSelect value={prioFilter} onChange={setPrioFilter} options={['전체','높음','보통','낮음']} minWidth={110} />
+        <FilterSelect value={statFilter} onChange={setStatFilter} options={['전체','미완료','진행 중','완료 대기','완료','재작업 필요']} minWidth={140} />
+        <FilterSelect value={periFilter} onChange={setPeriFilter} options={['전체','오늘','이번 주','이번 달']} minWidth={120} />
+        {/* 선택 액션 */}
+        {selected.size > 0 && (
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginLeft:'auto', padding:'4px 12px', background:C.primaryBg, borderRadius:8, border:`1px solid oklch(80% 0.08 195)` }}>
+            <span style={{ fontSize:12, fontWeight:600, color:C.primary }}>{selected.size}건 선택됨</span>
+            <button style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:C.danger, fontWeight:600, fontFamily:"'Noto Sans KR', sans-serif" }}>삭제</button>
+          </div>
+        )}
+      </div>
+
+      {/* 테이블 */}
+      <div style={{ background:C.cardBg, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden', marginBottom:16 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr style={{ background:C.pageBg, borderBottom:`1px solid ${C.border}` }}>
+              <th style={{ padding:'11px 16px', width:44, textAlign:'center' }}>
+                <Checkbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
+              </th>
+              {['업무명','배정 직원','직군','우선순위','마감일시','상태','액션'].map(h => (
+                <th key={h} style={{ padding:'11px 16px', fontSize:11, fontWeight:700, color:C.textMuted, textAlign:'left', letterSpacing:'0.04em', whiteSpace:'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTasks.map((task, i) => {
+              const p = PRIORITY_MAP[task.priority];
+              const s = STATUS_MAP[task.status];
+              const isSel = selected.has(task.id);
+              return (
+                <tr key={task.id}
+                  style={{ borderTop:`1px solid ${C.border}`, background: isSel ? C.primaryBg : 'transparent', transition:'120ms' }}
+                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = C.pageBg; }}
+                  onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <td style={{ padding:'12px 16px', textAlign:'center' }}>
+                    <Checkbox checked={isSel} onChange={() => toggleOne(task.id)} />
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{task.name}</span>
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <span style={{ fontSize:13, color:C.textSec }}>{task.employee}</span>
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <span style={{
+                      display:'inline-flex', alignItems:'center', gap:5,
+                      fontSize:11, fontWeight:600,
+                      color: DEPT_COLOR[task.dept], background:`${DEPT_COLOR[task.dept]}18`,
+                      borderRadius:6, padding:'3px 8px',
+                    }}>
+                      <span style={{ width:5, height:5, borderRadius:'50%', background:DEPT_COLOR[task.dept] }} />
+                      {task.dept}
+                    </span>
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:p.color, background:p.bg, borderRadius:6, padding:'3px 8px' }}>{p.label}</span>
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <span style={{ fontSize:13, color: task.due.startsWith('오늘') ? C.danger : C.textSec, fontWeight: task.due.startsWith('오늘') ? 600 : 400 }}>
+                      {task.due}
+                    </span>
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:s.color, background:s.bg, borderRadius:6, padding:'3px 8px', whiteSpace:'nowrap' }}>{s.label}</span>
+                  </td>
+                  <td style={{ padding:'12px 16px' }}>
+                    <div style={{ display:'flex', gap:4 }}>
+                      <button title="수정" style={{ width:32, height:32, borderRadius:7, border:`1px solid ${C.border}`, background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.textSec, transition:'150ms ease' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.primaryBg; e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                      <button title="삭제" style={{ width:32, height:32, borderRadius:7, border:`1px solid ${C.border}`, background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.textSec, transition:'150ms ease' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.dangerBg; e.currentTarget.style.borderColor = C.danger; e.currentTarget.style.color = C.danger; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6"/><path d="M14 11v6"/>
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 페이지네이션 */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontSize:13, color:C.textMuted }}>총 {TOTAL}건 · 페이지 {page} / {totalPages}</span>
+        <div style={{ display:'flex', gap:4 }}>
+          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1} style={{
+            width:32, height:32, borderRadius:7, border:`1px solid ${C.border}`,
+            background: page===1 ? C.pageBg : C.cardBg,
+            cursor: page===1 ? 'not-allowed' : 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            color: page===1 ? C.textMuted : C.textSec,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            const n = i + 1;
+            return (
+              <button key={n} onClick={() => setPage(n)} style={{
+                width:32, height:32, borderRadius:7,
+                border:`1px solid ${page===n ? C.primary : C.border}`,
+                background: page===n ? C.primary : C.cardBg,
+                color: page===n ? '#fff' : C.textSec,
+                fontSize:13, fontWeight: page===n ? 700 : 400,
+                cursor:'pointer', transition:'150ms ease',
+                fontFamily:"'Noto Sans KR', sans-serif",
+              }}>{n}</button>
+            );
+          })}
+          <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages} style={{
+            width:32, height:32, borderRadius:7, border:`1px solid ${C.border}`,
+            background: page===totalPages ? C.pageBg : C.cardBg,
+            cursor: page===totalPages ? 'not-allowed' : 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            color: page===totalPages ? C.textMuted : C.textSec,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar active="tasks" />
+      <TaskList />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

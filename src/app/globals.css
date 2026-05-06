@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+/* ── Design System Tokens ─────────────────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-primary:          oklch(55% 0.14 195);
+  --color-primary-hover:    oklch(48% 0.14 195);
+  --color-danger:           oklch(62% 0.16 25);
+  --color-danger-hover:     oklch(55% 0.16 25);
+  --color-success:          oklch(62% 0.15 160);
+  --color-warning:          oklch(75% 0.16 85);
+
+  --color-bg:               #ffffff;
+  --color-card:             oklch(95% 0.005 220);
+  --color-border:           oklch(88% 0.008 240);
+
+  --color-text-primary:     oklch(18% 0.01 260);
+  --color-text-secondary:   oklch(50% 0.01 260);
+
+  /* Danger background for rework cards */
+  --color-danger-bg:        oklch(97% 0.01 25);
+
+  /* Typography */
+  --font-sans: 'Noto Sans KR', sans-serif;
+
+  /* Border radius */
+  --radius-card:   12px;
+  --radius-button: 8px;
+
+  /* Transition */
+  --ease-ui: 150ms ease;
+}
+
+/* ── Base Styles ──────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Component Utilities ──────────────────────────────────────────── */
+
+/* Card */
+.card {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 4px oklch(0% 0 0 / 8%);
+}
+
+/* Rework card: left accent bar + light red background */
+.card-rework {
+  background-color: var(--color-danger-bg);
+  border-left: 4px solid var(--color-danger);
+}
+
+/* Button base — min-height 48px is non-negotiable (touch target) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-button);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  transition: background-color var(--ease-ui), opacity var(--ease-ui);
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+.btn-danger:hover {
+  background-color: var(--color-danger-hover);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+.btn-ghost:hover {
+  background-color: var(--color-card);
+}
+
+/* Input */
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 0.875rem;
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  transition: border-color var(--ease-ui), box-shadow var(--ease-ui);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px oklch(55% 0.14 195 / 20%);
+}
+
+/* ── Priority Badges ──────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-high     { background-color: oklch(62% 0.16 25 / 12%);  color: var(--color-danger); }
+.badge-medium   { background-color: oklch(75% 0.16 85 / 15%);  color: oklch(55% 0.16 75); }
+.badge-low      { background-color: oklch(62% 0.15 160 / 12%); color: oklch(45% 0.15 160); }
+
+/* ── Status Badges ────────────────────────────────────────────────── */
+.badge-pending  { background-color: oklch(55% 0.14 195 / 12%); color: var(--color-primary); }
+.badge-rework   { background-color: oklch(62% 0.16 25 / 12%);  color: var(--color-danger); }
+.badge-done     { background-color: oklch(88% 0.008 240);       color: var(--color-text-secondary); }
+
+/* ── 프로필 바텀시트 ─────────────────────────────────────────── */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── 관리자 로그인 애니메이션 ────────────────────────────────── */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-6px); }
+  40%     { transform: translateX(6px); }
+  60%     { transform: translateX(-4px); }
+  80%     { transform: translateX(4px); }
+}
+
+.card-enter { animation: fadeIn 0.4s ease both; }
+.shake      { animation: shake 0.35s ease; }
+
+/* ── 보고 제출 완료 애니메이션 ────────────────────────────────── */
+@keyframes checkDraw {
+  from { stroke-dashoffset: 60; opacity: 0; }
+  to   { stroke-dashoffset: 0;  opacity: 1; }
+}
+
+@keyframes circlePop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.slide-down   { animation: slideDown 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) both; }
+.reject-area  { animation: slideDown 0.25s ease both; }
+.result-banner { animation: fadeIn 0.3s ease both; }
+
+/* ── 씬 스크롤바 (관리자 화면) ───────────────────────────────── */
+.admin-scroll::-webkit-scrollbar       { width: 6px; height: 6px; }
+.admin-scroll::-webkit-scrollbar-track { background: transparent; }
+.admin-scroll::-webkit-scrollbar-thumb { background: oklch(80% 0.01 240); border-radius: 3px; }
+
+/* ── 관리자 테이블 액션 버튼 ───────────────────────────────────── */
+.admin-btn-icon {
+  width: 32px; height: 32px; border-radius: 7px;
+  border: 1px solid oklch(88% 0.008 240);
+  background: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: oklch(50% 0.01 260);
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  padding: 0;
+}
+.admin-btn-edit:hover {
+  background: oklch(93% 0.06 195);
+  border-color: oklch(55% 0.14 195);
+  color: oklch(55% 0.14 195);
+}
+.admin-btn-delete:hover {
+  background: oklch(95% 0.04 25);
+  border-color: oklch(62% 0.16 25);
+  color: oklch(62% 0.16 25);
+}
+
+/* ── 필터 select 화살표 제거 ────────────────────────────────────── */
+.admin-select { appearance: none; -webkit-appearance: none; }
+
+/* ── 모달 애니메이션 ────────────────────────────────────────────── */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* ── 인력 관리 테이블 텍스트 버튼 ──────────────────────────────── */
+.staff-btn {
+  padding: 6px 12px; border-radius: 7px;
+  border: 1px solid oklch(88% 0.008 240);
+  background: #fff; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  color: oklch(50% 0.01 260); font-family: inherit;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  white-space: nowrap;
+}
+.staff-btn-edit:hover {
+  background: oklch(93% 0.06 195);
+  border-color: oklch(55% 0.14 195);
+  color: oklch(55% 0.14 195);
+}
+.staff-btn-deactivate:hover {
+  background: oklch(95% 0.04 25);
+  border-color: oklch(62% 0.16 25);
+  color: oklch(62% 0.16 25);
+}
+.staff-btn-activate {
+  border-color: oklch(62% 0.15 160);
+  color: oklch(62% 0.15 160);
+  font-weight: 700;
+}
+.staff-btn-activate:hover { background: oklch(93% 0.05 160); }
+
+/* ── 아카이브 상세보기 버튼 ─────────────────────────────────────── */
+.archive-detail-btn {
+  padding: 6px 12px; border-radius: 7px;
+  border: 1px solid oklch(88% 0.008 240);
+  background: #fff; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: oklch(50% 0.01 260);
+  font-family: inherit; transition: 150ms ease;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.archive-detail-btn:hover {
+  background: oklch(93% 0.06 195);
+  border-color: oklch(55% 0.14 195);
+  color: oklch(55% 0.14 195);
+}

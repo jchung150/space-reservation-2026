@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCR-A06 완료 보고 상세 검토</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: oklch(95% 0.005 220); }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(80% 0.01 240); border-radius: 3px; }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+    to   { opacity: 1; transform: translateY(0); max-height: 300px; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .reject-area { animation: slideDown 0.25s ease both; }
+  .result-banner { animation: fadeIn 0.3s ease both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const C = {
+  primary:   'oklch(55% 0.14 195)',
+  primaryBg: 'oklch(93% 0.06 195)',
+  danger:    'oklch(62% 0.16 25)',
+  dangerBg:  'oklch(95% 0.04 25)',
+  success:   'oklch(62% 0.15 160)',
+  successBg: 'oklch(92% 0.06 160)',
+  warning:   'oklch(65% 0.16 65)',
+  warningBg: 'oklch(95% 0.05 85)',
+  border:    'oklch(88% 0.008 240)',
+  cardBg:    '#ffffff',
+  pageBg:    'oklch(95% 0.005 220)',
+  sidebar:   'oklch(16% 0.02 250)',
+  textPri:   'oklch(18% 0.01 260)',
+  textSec:   'oklch(50% 0.01 260)',
+  textMuted: 'oklch(65% 0.01 260)',
+};
+
+const REPORT = {
+  task:        '1층 로비 소화기 점검',
+  priority:    'high',
+  employee:    '김보안',
+  dept:        '보안',
+  submittedAt: '오늘 09:32',
+  memo:        '1층 로비 소화기 3개 모두 압력 게이지 정상 범위(녹색 구간) 확인 완료하였습니다.\n\n안전핀 이탈 없음, 외관 손상 없음, 점검 라벨 신규 부착 완료.\n\n소화기 위치:\n• 로비 정문 좌측\n• 로비 정문 우측\n• 안내데스크 뒤편\n\n이상 없음.',
+  taskDesc:    '1층 로비 소화기 3개의 압력 게이지를 확인하고 이상 유무를 보고하세요. 압력이 정상 범위(녹색 구간)를 벗어난 경우 즉시 관리자에게 연락하십시오.',
+  due:         '2026년 4월 30일 14:00',
+  assignedAt:  '2026년 4월 28일',
+  photos: [
+    { color:'oklch(72% 0.09 195)', label:'소화기 정면' },
+    { color:'oklch(75% 0.09 145)', label:'압력 게이지' },
+    { color:'oklch(78% 0.08 50)',  label:'점검 라벨'  },
+  ],
+};
+
+const PRIORITY_MAP = {
+  high:   { label:'높음', color: C.danger,  bg: C.dangerBg },
+  medium: { label:'보통', color: C.warning, bg: C.warningBg },
+  low:    { label:'낮음', color: C.success, bg: C.successBg },
+};
+const DEPT_COLOR = { 보안:'oklch(65% 0.16 65)', 청소:'oklch(62% 0.15 160)', 시설:'oklch(55% 0.14 195)' };
+
+const NAV_ITEMS = [
+  { key:'dashboard', label:'대시보드' },
+  { key:'tasks',     label:'업무 관리' },
+  { key:'reports',   label:'완료 보고 검토', badge:7 },
+  { key:'staff',     label:'인력 관리' },
+  { key:'archive',   label:'아카이브' },
+];
+const NAV_ICONS = {
+  dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  tasks:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>,
+  reports:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  staff:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
+  archive:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>,
+};
+
+function Sidebar({ active }) {
+  return (
+    <div style={{ width:220, flexShrink:0, background:C.sidebar, display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 }}>
+      <div style={{ padding:'24px 20px 20px', borderBottom:'1px solid oklch(24% 0.02 250)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>영준피엠씨</div>
+            <div style={{ fontSize:10, color:'oklch(50% 0.02 250)', marginTop:1 }}>관리자 포털</div>
+          </div>
+        </div>
+      </div>
+      <nav style={{ flex:1, padding:'12px 10px' }}>
+        {NAV_ITEMS.map(item => {
+          const isActive = item.key === active;
+          return (
+            <button key={item.key} style={{
+              width:'100%', display:'flex', alignItems:'center', gap:10,
+              padding:'10px 12px', borderRadius:8, border:'none', cursor:'pointer',
+              background: isActive ? C.primary : 'transparent',
+              color: isActive ? '#fff' : 'oklch(60% 0.02 250)',
+              fontSize:13, fontWeight: isActive ? 600 : 400,
+              fontFamily:"'Noto Sans KR', sans-serif",
+              marginBottom:2, textAlign:'left', transition:'150ms ease',
+            }}>
+              {NAV_ICONS[item.key]}{item.label}
+              {item.badge && <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, background: isActive ? 'rgba(255,255,255,0.25)' : C.danger, color:'#fff', borderRadius:10, padding:'1px 6px' }}>{item.badge}</span>}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ padding:'16px 16px 20px', borderTop:'1px solid oklch(24% 0.02 250)', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:'50%', background:'oklch(30% 0.03 250)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'oklch(70% 0.02 250)', flexShrink:0 }}>박</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#fff' }}>박관리</div>
+          <div style={{ fontSize:11, color:'oklch(45% 0.02 250)' }}>관리자</div>
+        </div>
+        <button style={{ background:'none', border:'none', cursor:'pointer', color:'oklch(40% 0.02 250)', padding:4, display:'flex' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div style={{ display:'flex', gap:12, padding:'8px 0', borderBottom:`1px solid ${C.border}` }}>
+      <span style={{ fontSize:12, color:C.textMuted, flexShrink:0, width:64 }}>{label}</span>
+      <span style={{ fontSize:13, color:C.textPri, fontWeight:600, flex:1 }}>{value}</span>
+    </div>
+  );
+}
+
+function ReviewContent() {
+  const [photoIdx, setPhotoIdx]       = useState(0);
+  const [lightbox, setLightbox]       = useState(false);
+  const [rejectOpen, setRejectOpen]   = useState(false);
+  const [rejectNote, setRejectNote]   = useState('');
+  const [result, setResult]           = useState(null); // 'approved' | 'rejected'
+  const [rejectErr, setRejectErr]     = useState(false);
+
+  const p = PRIORITY_MAP[REPORT.priority];
+  const dc = DEPT_COLOR[REPORT.dept];
+
+  function handleApprove() { setResult('approved'); setRejectOpen(false); }
+  function handleReject() {
+    if (!rejectNote.trim()) { setRejectErr(true); return; }
+    setResult('rejected');
+  }
+
+  return (
+    <div style={{ flex:1, display:'flex', overflow:'hidden', minWidth:0 }}>
+
+      {/* ── 좌측: 제출 내용 ── */}
+      <div style={{ flex:'0 0 55%', overflowY:'auto', padding:'28px 24px 28px 32px', borderRight:`1px solid ${C.border}` }}>
+
+        {/* 뒤로 + 제목 */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+          <button style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:C.cardBg, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.textSec }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span style={{ fontSize:13, color:C.textSec }}>완료 보고 검토 목록</span>
+        </div>
+
+        {/* 업무명 + 배지 */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+            <span style={{ fontSize:11, fontWeight:600, color:p.color, background:p.bg, borderRadius:6, padding:'3px 10px' }}>{p.label}</span>
+            <span style={{ fontSize:11, fontWeight:600, color:dc, background:`${dc}18`, borderRadius:6, padding:'3px 10px' }}>{REPORT.dept}</span>
+          </div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:C.textPri, lineHeight:1.4, marginBottom:8 }}>{REPORT.task}</h1>
+          <div style={{ display:'flex', alignItems:'center', gap:12, fontSize:13, color:C.textSec }}>
+            <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              {REPORT.employee}
+            </span>
+            <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {REPORT.submittedAt} 제출
+            </span>
+          </div>
+        </div>
+
+        {/* 사진 갤러리 */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.textSec, marginBottom:10, letterSpacing:'0.03em' }}>첨부 사진 ({REPORT.photos.length}장)</div>
+          {/* 메인 사진 */}
+          <div
+            onClick={() => setLightbox(true)}
+            style={{
+              width:'100%', height:240, borderRadius:12,
+              background: REPORT.photos[photoIdx].color,
+              display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+              cursor:'pointer', position:'relative', marginBottom:10,
+              overflow:'hidden',
+            }}
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span style={{ color:'rgba(255,255,255,0.8)', fontSize:13, marginTop:8 }}>{REPORT.photos[photoIdx].label}</span>
+            {/* 확대 아이콘 */}
+            <div style={{ position:'absolute', top:10, right:10, background:'rgba(0,0,0,0.3)', borderRadius:6, padding:6, display:'flex' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+              </svg>
+            </div>
+            {/* 이전/다음 */}
+            {photoIdx > 0 && (
+              <button onClick={e => { e.stopPropagation(); setPhotoIdx(i => i-1); }} style={{
+                position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+                width:32, height:32, borderRadius:'50%', background:'rgba(0,0,0,0.35)',
+                border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            )}
+            {photoIdx < REPORT.photos.length - 1 && (
+              <button onClick={e => { e.stopPropagation(); setPhotoIdx(i => i+1); }} style={{
+                position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                width:32, height:32, borderRadius:'50%', background:'rgba(0,0,0,0.35)',
+                border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )}
+          </div>
+          {/* 썸네일 */}
+          <div style={{ display:'flex', gap:8 }}>
+            {REPORT.photos.map((ph, i) => (
+              <div key={i} onClick={() => setPhotoIdx(i)} style={{
+                width:72, height:52, borderRadius:8,
+                background: ph.color, cursor:'pointer',
+                border: photoIdx===i ? `2px solid ${C.primary}` : '2px solid transparent',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                transition:'150ms ease', flexShrink:0,
+              }}>
+                <span style={{ fontSize:9, color:'rgba(255,255,255,0.8)' }}>{ph.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 직원 메모 */}
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:C.textSec, marginBottom:10, letterSpacing:'0.03em' }}>직원 메모</div>
+          <div style={{
+            background:C.pageBg, borderRadius:10, border:`1px solid ${C.border}`,
+            padding:'14px 16px', fontSize:14, color:C.textPri, lineHeight:1.75,
+            whiteSpace:'pre-line',
+          }}>{REPORT.memo}</div>
+        </div>
+      </div>
+
+      {/* ── 우측: 처리 패널 ── */}
+      <div style={{ flex:'0 0 45%', overflowY:'auto', padding:'28px 32px 28px 24px', display:'flex', flexDirection:'column', gap:16 }}>
+
+        {/* 원본 업무 정보 */}
+        <div style={{ background:C.cardBg, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+          <div style={{ padding:'13px 16px', background:C.pageBg, borderBottom:`1px solid ${C.border}` }}>
+            <span style={{ fontSize:12, fontWeight:700, color:C.textSec, letterSpacing:'0.04em' }}>원본 업무 정보</span>
+          </div>
+          <div style={{ padding:'4px 16px 8px' }}>
+            <InfoRow label="업무 설명" value={REPORT.taskDesc} />
+            <InfoRow label="마감일시" value={REPORT.due} />
+            <InfoRow label="배정일" value={REPORT.assignedAt} />
+          </div>
+        </div>
+
+        {/* 검토 처리 패널 */}
+        <div style={{ background:C.cardBg, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden', flex:1 }}>
+          <div style={{ padding:'13px 16px', background:C.pageBg, borderBottom:`1px solid ${C.border}` }}>
+            <span style={{ fontSize:12, fontWeight:700, color:C.textSec, letterSpacing:'0.04em' }}>검토 처리</span>
+          </div>
+          <div style={{ padding:'20px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+
+            {/* 처리 결과 배너 */}
+            {result === 'approved' && (
+              <div className="result-banner" style={{
+                display:'flex', alignItems:'center', gap:10,
+                background:C.successBg, border:`1px solid oklch(75% 0.1 160)`,
+                borderRadius:10, padding:'14px 16px',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.success }}>완료 확정되었습니다.</div>
+                  <div style={{ fontSize:12, color:'oklch(48% 0.12 160)', marginTop:2 }}>직원에게 승인 결과가 전달됩니다.</div>
+                </div>
+              </div>
+            )}
+            {result === 'rejected' && (
+              <div className="result-banner" style={{
+                display:'flex', alignItems:'center', gap:10,
+                background:C.dangerBg, border:`1px solid oklch(78% 0.1 25)`,
+                borderRadius:10, padding:'14px 16px',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.danger} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.danger }}>재작업 요청이 전달되었습니다.</div>
+                  <div style={{ fontSize:12, color:'oklch(48% 0.12 25)', marginTop:2 }}>직원이 재작업 후 다시 보고합니다.</div>
+                </div>
+              </div>
+            )}
+
+            {!result && (
+              <>
+                {/* 안내 문구 */}
+                <div style={{ fontSize:13, color:C.textSec, lineHeight:1.6 }}>
+                  제출된 완료 보고를 검토한 후 처리 결과를 선택해주세요.
+                </div>
+
+                {/* 승인 버튼 */}
+                <button onClick={handleApprove} style={{
+                  width:'100%', padding:'16px', borderRadius:10, border:'none',
+                  background:C.success, color:'#fff',
+                  fontSize:16, fontWeight:700, cursor:'pointer',
+                  fontFamily:"'Noto Sans KR', sans-serif",
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                  boxShadow:`0 4px 14px oklch(62% 0.15 160 / 30%)`,
+                  transition:'150ms ease',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'oklch(55% 0.14 160)'}
+                onMouseLeave={e => e.currentTarget.style.background = C.success}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  완료 확정
+                </button>
+
+                {/* 반려 버튼 */}
+                <button onClick={() => setRejectOpen(v => !v)} style={{
+                  width:'100%', padding:'15px', borderRadius:10,
+                  border:`2px solid ${rejectOpen ? C.danger : 'oklch(80% 0.08 25)'}`,
+                  background: rejectOpen ? C.dangerBg : '#fff',
+                  color:C.danger,
+                  fontSize:16, fontWeight:700, cursor:'pointer',
+                  fontFamily:"'Noto Sans KR', sans-serif",
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                  transition:'150ms ease',
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  재작업 요청
+                </button>
+
+                {/* 반려 사유 입력 */}
+                {rejectOpen && (
+                  <div className="reject-area">
+                    <div style={{ fontSize:13, fontWeight:600, color:C.textPri, marginBottom:8 }}>
+                      반려 사유 <span style={{ color:C.danger }}>*</span>
+                    </div>
+                    <textarea
+                      value={rejectNote}
+                      onChange={e => { setRejectNote(e.target.value); setRejectErr(false); }}
+                      placeholder="재작업이 필요한 이유를 입력해주세요. 직원에게 전달됩니다."
+                      rows={4}
+                      style={{
+                        width:'100%', padding:'12px', borderRadius:8, resize:'vertical',
+                        border:`1.5px solid ${rejectErr ? C.danger : C.border}`,
+                        background:C.pageBg, fontSize:13, color:C.textPri,
+                        lineHeight:1.6, outline:'none',
+                        fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+                      }}
+                      onFocus={e => e.target.style.borderColor = C.danger}
+                      onBlur={e => e.target.style.borderColor = rejectErr ? C.danger : C.border}
+                    />
+                    {rejectErr && (
+                      <div style={{ fontSize:12, color:C.danger, fontWeight:600, marginTop:5, display:'flex', alignItems:'center', gap:4 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        반려 사유를 입력해주세요
+                      </div>
+                    )}
+                    <button onClick={handleReject} style={{
+                      width:'100%', marginTop:10, padding:'13px', borderRadius:8,
+                      border:'none', background:C.danger, color:'#fff',
+                      fontSize:14, fontWeight:700, cursor:'pointer',
+                      fontFamily:"'Noto Sans KR', sans-serif",
+                      boxShadow:`0 4px 14px oklch(62% 0.16 25 / 25%)`,
+                      transition:'150ms ease',
+                    }}>반려 처리 확정</button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 처리 완료 후 목록 복귀 버튼 */}
+            {result && (
+              <button style={{
+                width:'100%', padding:'13px', borderRadius:8,
+                border:`1.5px solid ${C.border}`, background:C.cardBg,
+                color:C.textSec, fontSize:14, fontWeight:600, cursor:'pointer',
+                fontFamily:"'Noto Sans KR', sans-serif",
+              }}>← 목록으로 돌아가기</button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 라이트박스 */}
+      {lightbox && (
+        <div onClick={() => setLightbox(false)} style={{
+          position:'fixed', inset:0, zIndex:200,
+          background:'oklch(5% 0 0 / 88%)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          flexDirection:'column', gap:14,
+        }}>
+          <div style={{
+            width:480, height:360, borderRadius:16,
+            background: REPORT.photos[photoIdx].color,
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          <span style={{ color:'oklch(70% 0 0)', fontSize:13 }}>{REPORT.photos[photoIdx].label} · 탭하면 닫힙니다</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar active="reports" />
+      <ReviewContent />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
