@@ -39,7 +39,7 @@ export async function GET(
       id, status, memo, reject_reason, created_at, reviewed_at,
       staff:submitted_by_id ( id, name, job_types ),
       task:tasks!task_id (
-        id, title, priority, description, deadline, created_at, task_job_type,
+        id, title, priority, description, deadline, created_at, task_job_type, reference_images,
         admins:created_by_id ( name )
       ),
       photos:report_photos ( id, storage_path, file_name, sort_order )
@@ -73,13 +73,13 @@ export async function GET(
     taskDue:        fmt(r.task?.deadline ?? null),
     taskAssignedAt: fmtDate(r.task?.created_at ?? null),
     assignedByName: r.task?.admins?.name ?? '—',
-    photos:         await Promise.all(
+    photos: await Promise.all(
       (r.photos ?? [])
         .sort((a: any, b: any) => a.sort_order - b.sort_order)
         .map(async (p: any) => {
           const { data: signedData } = await supabaseAdmin.storage
             .from('report-photos')
-            .createSignedUrl(p.storage_path, 3600); // 1시간 유효
+            .createSignedUrl(p.storage_path, 3600);
           return {
             id:          p.id,
             storagePath: p.storage_path,
@@ -88,6 +88,14 @@ export async function GET(
           };
         })
     ),
+    referenceImages: await Promise.all(
+      ((r.task?.reference_images ?? []) as string[]).map(async (path: string) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from('task-references')
+          .createSignedUrl(path, 3600);
+        return signed?.signedUrl ?? null;
+      })
+    ).then(urls => urls.filter(Boolean) as string[]),
   });
 }
 

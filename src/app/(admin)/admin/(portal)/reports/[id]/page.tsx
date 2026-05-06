@@ -255,7 +255,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           {/* ── 사진 갤러리 ── */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.textSec, marginBottom: 10, letterSpacing: '0.03em' }}>
-              첨부 사진 ({photos.length}장)
+              직원 제출 사진 ({photos.length}장)
             </div>
 
             {/* 메인 사진 */}
@@ -392,6 +392,23 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <InfoRow label="마감일시"  value={report.taskDue         ?? '—'} />
               <InfoRow label="배정일"    value={report.taskAssignedAt  ?? '—'} />
             </div>
+            {/* 참고 이미지 */}
+            {(report.referenceImages ?? []).length > 0 && (
+              <div style={{ padding: '0 16px 16px' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 8 }}>
+                  참고 이미지 ({report.referenceImages.length}장)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {report.referenceImages.map((url: string, i: number) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'block', width: 80, height: 80, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.border}`, flexShrink: 0 }}>
+                      <img src={url} alt={`참고 이미지 ${i + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 검토 처리 카드 */}
