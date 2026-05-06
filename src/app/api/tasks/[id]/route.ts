@@ -18,24 +18,34 @@ export async function GET(
 
   const { id } = await params;
 
-  const { data, error } = await supabaseAdmin
-    .from('tasks')
-    .select('*, admins:created_by_id(name)')
-    .eq('id', id)
-    .eq('assignee_id', session.id) // 본인 업무만 조회 가능
-    .single();
+  const [taskRes, reportsRes] = await Promise.all([
+    supabaseAdmin
+      .from('tasks')
+      .select('*, admins:created_by_id(name)')
+      .eq('id', id)
+      .eq('assignee_id', session.id)
+      .single(),
 
-  if (error || !data) {
+    supabaseAdmin
+      .from('reports')
+      .select('id, status, report_photos(storage_path, sort_order)')
+      .eq('task_id', id)
+      .eq('submitted_by_id', session.id)
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ]);
+
+  if (taskRes.error || !taskRes.data) {
     return NextResponse.json({ error: '업무를 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const task = mapTask(data);
+  const task = mapTask(taskRes.data);
 
-  // reference_images storage 경로 → 서명 URL 변환
-  const paths: string[] = (data as any).reference_images ?? [];
-  if (paths.length > 0) {
+  // 참고 이미지 서명 URL 변환
+  const refPaths: string[] = (taskRes.data as any).reference_images ?? [];
+  if (refPaths.length > 0) {
     const signedUrls = await Promise.all(
-      paths.map(async (path: string) => {
+      refPaths.map(async (path: string) => {
         const { data: signed } = await supabaseAdmin.storage
           .from('task-references')
           .createSignedUrl(path, 3600);
@@ -45,5 +55,21 @@ export async function GET(
     task.referenceImages = signedUrls.filter(Boolean) as string[];
   }
 
-  return NextResponse.json(task);
+  // 직원 제출 사진 서명 URL 변환 (가장 최근 보고)
+  const latestReport = (reportsRes.data ?? [])[0] as any;
+  const reportPhotos: string[] = [];
+  if (latestReport?.report_photos?.length > 0) {
+    const sorted = [...latestReport.report_photos].sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const urls = await Promise.all(
+      sorted.map(async (p: any) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from('report-photos')
+          .createSignedUrl(p.storage_path, 3600);
+        return signed?.signedUrl ?? null;
+      })
+    );
+    reportPhotos.push(...(urls.filter(Boolean) as string[]));
+  }
+
+  return NextResponse.json({ ...task, submittedPhotos: reportPhotos });
 }

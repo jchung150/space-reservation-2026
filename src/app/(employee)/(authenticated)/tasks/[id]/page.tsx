@@ -369,6 +369,22 @@ export default function TaskDetailPage({
           </Card>
         )}
 
+        {/* ── 제출한 사진 카드 (검토 대기·완료 상태일 때) ── */}
+        {((task as any).submittedPhotos ?? []).length > 0 && (
+          <Card>
+            <SectionTitle>제출한 사진</SectionTitle>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {((task as any).submittedPhotos as string[]).map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'block', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid oklch(88% 0.008 240)' }}>
+                  <img src={url} alt={`제출 사진 ${i + 1}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                </a>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* 하단 버튼 영역만큼 여백 */}
         <div style={{ height: 80 }} />
       </div>
