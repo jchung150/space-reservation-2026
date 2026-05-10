@@ -211,6 +211,7 @@ export default function AdminTasksPage() {
                 const s        = STATUS_CFG[task.status];
                 const dueStr   = getAdminDueLabel(task.deadline);
                 const isToday  = dueStr.startsWith('오늘');
+                const isOverdue = new Date(task.deadline) < new Date() && !['done', 'pending_review'].includes(task.status);
                 const isSel    = selected.has(task.id);
                 const isHov    = hoveredRow === task.id && !isSel;
                 const deptClr  = DEPT_COLOR[task.dept] ?? C.textMuted;
@@ -236,7 +237,7 @@ export default function AdminTasksPage() {
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '3px 8px' }}>{p.label}</span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: isToday ? C.danger : C.textSec, fontWeight: isToday ? 600 : 400 }}>{dueStr}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: isOverdue || isToday ? C.danger : C.textSec, fontWeight: isOverdue || isToday ? 600 : 400 }}>{dueStr}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: s.color, background: s.bg, borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' }}>{s.label}</span>
                     </td>
