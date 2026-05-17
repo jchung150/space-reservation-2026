@@ -57,7 +57,6 @@ interface FormErrors {
   title?:      string;
   desc?:       string;
   dueDate?:    string;
-  dueTime?:    string;
   assigneeId?: string;
 }
 
@@ -229,7 +228,7 @@ function TimeSelect({
           outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
         }}
       >
-        <option value="">시간 선택</option>
+        <option value="">시간 선택 (기본 14:00)</option>
         {TIME_OPTIONS.map((t) => (
           <option key={t} value={t}>{t}</option>
         ))}
@@ -255,9 +254,13 @@ const REPEAT_TYPE_MAP: Record<string, RepeatType> = {
 export default function TaskFormPage({
   isEdit = false,
   initialData,
+  fromRequestId,
+  prefill,
 }: {
   isEdit?: boolean;
   initialData?: TaskFormInitialData;
+  fromRequestId?: string;
+  prefill?: { title?: string; desc?: string; location?: string };
 }) {
   const router      = useRouter();
   const queryClient = useQueryClient();
@@ -275,8 +278,8 @@ export default function TaskFormPage({
   }, []);
 
   /* 폼 상태 */
-  const [title,      setTitle]      = useState(initialData?.title     ?? '');
-  const [desc,       setDesc]       = useState(initialData?.desc      ?? '');
+  const [title,      setTitle]      = useState(initialData?.title     ?? prefill?.title    ?? '');
+  const [desc,       setDesc]       = useState(initialData?.desc      ?? prefill?.desc     ?? '');
   const [priority,   setPriority]   = useState<Priority>(initialData?.priority  ?? 'medium');
   const [dueDate,    setDueDate]    = useState(initialData?.dueDate   ?? '');
   const [dueTime,    setDueTime]    = useState(initialData?.dueTime   ?? '');
@@ -354,7 +357,6 @@ export default function TaskFormPage({
     if (!title.trim())  e.title      = '업무명을 입력해주세요';
     if (!desc.trim())   e.desc       = '업무 설명을 입력해주세요';
     if (!dueDate)       e.dueDate    = '마감일을 선택해주세요';
-    if (!dueTime)       e.dueTime    = '마감 시간을 선택해주세요';
     if (!assigneeId)    e.assigneeId = '배정 직원을 선택해주세요';
     return e;
   }
@@ -373,7 +375,7 @@ export default function TaskFormPage({
 
     // 로컬 시간 문자열을 Date 객체로 만들면 브라우저가 로컬 타임존으로 해석
     // .toISOString()으로 UTC 변환 → DB(timestamptz)에 올바르게 저장됨
-    const deadline = new Date(`${dueDate}T${dueTime}:00`).toISOString();
+    const deadline = new Date(`${dueDate}T${dueTime || '14:00'}:00`).toISOString();
 
     // 참고 이미지: 기존 경로 유지 + 신규 파일 업로드
     let newPaths: string[] = [];
@@ -413,9 +415,20 @@ export default function TaskFormPage({
         setApiError(data.error ?? '저장에 실패했습니다.');
         return;
       }
+      const resData = await res.json();
       setSubmitted(true);
-      // 업무 목록 캐시 즉시 무효화 → 목록 페이지 이동 시 최신 데이터 표시
       queryClient.invalidateQueries({ queryKey: ['admin-tasks'] });
+
+      // 요청에서 전환된 경우 요청 상태를 'converted'로 업데이트
+      if (fromRequestId) {
+        await fetch(`/api/admin/task-requests/${fromRequestId}/convert`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: resData?.id }),
+        }).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['task-requests'] });
+      }
+
       setTimeout(() => router.push('/admin/tasks'), 1200);
     } catch {
       setApiError('네트워크 오류가 발생했습니다.');
@@ -548,10 +561,8 @@ export default function TaskFormPage({
               <div style={{ width: 140 }}>
                 <TimeSelect
                   value={dueTime}
-                  onChange={(v) => { setDueTime(v); if (errors.dueTime) setErrors((p) => ({ ...p, dueTime: undefined })); }}
-                  error={errors.dueTime}
+                  onChange={(v) => setDueTime(v)}
                 />
-                <ErrorMsg msg={errors.dueTime} />
               </div>
             </div>
           </div>

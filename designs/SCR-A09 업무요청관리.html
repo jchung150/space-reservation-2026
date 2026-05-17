@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCR-A09 업무 요청 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: oklch(95% 0.005 220); }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(80% 0.01 240); border-radius: 3px; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes critPulse {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(62% 0.16 25 / 35%), 0 4px 20px oklch(62% 0.16 25 / 18%); }
+    50%      { box-shadow: 0 0 0 6px oklch(62% 0.16 25 / 0%),  0 4px 20px oklch(62% 0.16 25 / 18%); }
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .slide-down { animation: slideDown 0.35s cubic-bezier(0.34,1.2,0.64,1) both; }
+  .crit-pulse { animation: critPulse 2s ease infinite; }
+  .yj-input:focus, .yj-textarea:focus {
+    border-color: oklch(55% 0.14 195) !important;
+    background: #fff !important;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const C = {
+  primary:    'oklch(55% 0.14 195)',
+  primaryBg:  'oklch(93% 0.06 195)',
+  primarySoft:'oklch(97% 0.025 195)',
+  danger:     'oklch(62% 0.16 25)',
+  dangerBg:   'oklch(95% 0.04 25)',
+  dangerSoft: 'oklch(98% 0.015 25)',
+  success:    'oklch(62% 0.15 160)',
+  successBg:  'oklch(93% 0.05 160)',
+  warning:    'oklch(65% 0.16 65)',
+  warningBg:  'oklch(95% 0.05 85)',
+  border:     'oklch(88% 0.008 240)',
+  cardBg:     '#ffffff',
+  pageBg:     'oklch(95% 0.005 220)',
+  sidebar:    'oklch(16% 0.02 250)',
+  textPri:    'oklch(18% 0.01 260)',
+  textSec:    'oklch(50% 0.01 260)',
+  textMuted:  'oklch(65% 0.01 260)',
+};
+
+const DEPT_COLOR = {
+  보안: 'oklch(65% 0.16 65)',
+  청소: 'oklch(62% 0.15 160)',
+  시설: 'oklch(55% 0.14 195)',
+};
+
+const URGENCY = {
+  critical: { label: '매우 긴급', color: C.danger,  bg: C.dangerBg,  dot: C.danger,  rank: 0 },
+  urgent:   { label: '긴급',      color: C.warning, bg: C.warningBg, dot: C.warning, rank: 1 },
+  normal:   { label: '일반',      color: C.textSec, bg: C.pageBg,    dot: C.textMuted, rank: 2 },
+};
+
+const PHOTO_COLORS = [
+  'oklch(72% 0.09 195)', 'oklch(75% 0.09 145)',
+  'oklch(78% 0.08 50)',  'oklch(72% 0.09 280)',
+];
+
+const NAV_ITEMS = [
+  { key:'dashboard', label:'대시보드' },
+  { key:'tasks',     label:'업무 관리' },
+  { key:'requests',  label:'업무 요청',     badge: 4 },
+  { key:'reports',   label:'완료 보고 검토', badge: 7 },
+  { key:'staff',     label:'인력 관리' },
+  { key:'archive',   label:'아카이브' },
+];
+const NAV_ICONS = {
+  dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  tasks:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>,
+  requests:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  reports:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  staff:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  archive:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>,
+};
+
+const STAFF_BY_DEPT = {
+  보안: [
+    { id:'sec1', name:'김보안', load: 2, status:'근무중' },
+    { id:'sec2', name:'이보안', load: 4, status:'근무중' },
+    { id:'sec3', name:'정보안', load: 6, status:'바쁨' },
+  ],
+  청소: [
+    { id:'cln1', name:'이청소', load: 3, status:'근무중' },
+    { id:'cln2', name:'최청소', load: 1, status:'근무중' },
+    { id:'cln3', name:'한청소', load: 5, status:'바쁨' },
+  ],
+  시설: [
+    { id:'fac1', name:'박유지', load: 2, status:'근무중' },
+    { id:'fac2', name:'정유지', load: 4, status:'근무중' },
+  ],
+};
+
+const INITIAL_REQUESTS = [
+  {
+    id: 'REQ-2604-129', urgency: 'critical',
+    title: '지하주차장 침수 발생',
+    location: '지하 1층 B구역 (주차구역 B-12 ~ B-18)',
+    desc: '배수구에서 물이 역류하여 주차된 차량 바퀴 절반까지 침수 진행 중. 즉시 조치 필요. 추가 차량 진입 통제 요청드립니다.',
+    employee: '박유지', dept: '시설', timeAgo: '방금 전',
+    photo: PHOTO_COLORS[2], status: 'pending', isNew: true,
+  },
+  {
+    id: 'REQ-2604-128', urgency: 'urgent',
+    title: '3층 남자화장실 수도꼭지 누수',
+    location: '3층 남자화장실 세 번째 칸',
+    desc: '세면대 수도꼭지에서 물이 끊임없이 흐름. 잠금 핸들이 헛돌아 차단 불가. 바닥에 물이 고이기 시작했습니다.',
+    employee: '이청소', dept: '청소', timeAgo: '8분 전',
+    photo: PHOTO_COLORS[0], status: 'pending', isNew: false,
+  },
+  {
+    id: 'REQ-2604-127', urgency: 'normal',
+    title: '로비 형광등 2개 교체 필요',
+    location: '1층 로비 안내데스크 상단',
+    desc: '안내데스크 바로 위 형광등 2개가 깜빡이며 점등 불량 상태. 방문객 응대 환경 개선이 필요합니다.',
+    employee: '김보안', dept: '보안', timeAgo: '1시간 전',
+    photo: null, status: 'pending', isNew: false,
+  },
+  {
+    id: 'REQ-2604-126', urgency: 'normal',
+    title: '옥상 배수구 낙엽 막힘',
+    location: '본관 옥상 동측 배수구',
+    desc: '옥상 배수구 2곳이 낙엽과 이물질로 막혀 있음. 비 예보 있어 사전 청소 필요할 것 같습니다.',
+    employee: '최청소', dept: '청소', timeAgo: '3시간 전',
+    photo: PHOTO_COLORS[1], status: 'pending', isNew: false,
+  },
+];
+
+// ── 사이드바 ──────────────────────────────────────────
+function Sidebar({ active }) {
+  return (
+    <div style={{ width:220, flexShrink:0, background:C.sidebar, display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 }}>
+      <div style={{ padding:'24px 20px 20px', borderBottom:'1px solid oklch(24% 0.02 250)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>영준피엠씨</div>
+            <div style={{ fontSize:10, color:'oklch(50% 0.02 250)', marginTop:1 }}>관리자 포털</div>
+          </div>
+        </div>
+      </div>
+      <nav style={{ flex:1, padding:'12px 10px' }}>
+        {NAV_ITEMS.map(item => {
+          const isActive = item.key === active;
+          return (
+            <button key={item.key} style={{
+              width:'100%', display:'flex', alignItems:'center', gap:10,
+              padding:'10px 12px', borderRadius:8, border:'none', cursor:'pointer',
+              background: isActive ? C.primary : 'transparent',
+              color: isActive ? '#fff' : 'oklch(60% 0.02 250)',
+              fontSize:13, fontWeight: isActive ? 600 : 400,
+              fontFamily:"'Noto Sans KR', sans-serif",
+              marginBottom:2, textAlign:'left', transition:'150ms ease',
+            }}>
+              {NAV_ICONS[item.key]}{item.label}
+              {item.badge && <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, background: isActive ? 'rgba(255,255,255,0.25)' : C.danger, color:'#fff', borderRadius:10, padding:'1px 6px' }}>{item.badge}</span>}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ padding:'16px 16px 20px', borderTop:'1px solid oklch(24% 0.02 250)', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:'50%', background:'oklch(30% 0.03 250)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'oklch(70% 0.02 250)', flexShrink:0 }}>박</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#fff' }}>박관리</div>
+          <div style={{ fontSize:11, color:'oklch(45% 0.02 250)' }}>관리자</div>
+        </div>
+        <button style={{ background:'none', border:'none', cursor:'pointer', color:'oklch(40% 0.02 250)', padding:4, display:'flex' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 요청 카드 ─────────────────────────────────────────
+function RequestCard({ req, onAssign, onReject, rejectingId, onRejectCancel, onRejectConfirm }) {
+  const u = URGENCY[req.urgency];
+  const dc = DEPT_COLOR[req.dept];
+  const isCritical = req.urgency === 'critical';
+  const isUrgent   = req.urgency === 'urgent';
+  const [rejectReason, setRejectReason] = useState('');
+  const isRejecting = rejectingId === req.id;
+
+  return (
+    <div className={(req.isNew ? 'slide-down ' : '') + (isCritical ? 'crit-pulse' : '')} style={{
+      background: isCritical ? C.dangerSoft : C.cardBg,
+      borderRadius: 12,
+      border: isCritical ? `2px solid ${C.danger}` :
+              isUrgent   ? `1.5px solid ${C.warning}` :
+                           `1px solid ${C.border}`,
+      boxShadow: isCritical ? undefined : '0 1px 4px oklch(0% 0 0 / 5%)',
+      padding: '18px 20px',
+      display: 'flex', gap: 16,
+      transition: '200ms ease',
+      position: 'relative',
+    }}>
+      {/* 좌측 강조 바 */}
+      {(isCritical || isUrgent) && (
+        <div style={{
+          position: 'absolute', left: 0, top: 12, bottom: 12, width: 4,
+          background: u.color, borderRadius: '0 4px 4px 0',
+        }} />
+      )}
+
+      {/* NEW 배지 */}
+      {req.isNew && (
+        <div style={{
+          position:'absolute', top:-9, right:18,
+          background: C.primary, color:'#fff',
+          fontSize:10, fontWeight:700, borderRadius:10,
+          padding:'2px 8px', letterSpacing:'0.06em',
+        }}>NEW</div>
+      )}
+
+      {/* 사진 썸네일 */}
+      {req.photo ? (
+        <div style={{
+          width:88, height:88, borderRadius:10,
+          background: req.photo, flexShrink:0,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          position:'relative',
+        }}>
+          <span style={{ fontSize:10, color:'white', fontFamily:'monospace' }}>현장사진</span>
+        </div>
+      ) : (
+        <div style={{
+          width:88, height:88, borderRadius:10,
+          background: C.pageBg, flexShrink:0,
+          border: `1px dashed ${C.border}`,
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          gap: 4, color: C.textMuted,
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span style={{ fontSize: 10 }}>사진 없음</span>
+        </div>
+      )}
+
+      {/* 메인 정보 */}
+      <div style={{ flex:1, minWidth:0 }}>
+        {/* 배지 행 */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+          <span style={{
+            display:'inline-flex', alignItems:'center', gap:5,
+            fontSize:11, fontWeight:700, color:u.color,
+            background: u.bg, border: isCritical ? `1px solid ${u.color}` : 'none',
+            borderRadius:6, padding:'3px 9px',
+          }}>
+            {isCritical && (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            )}
+            {!isCritical && <span style={{ width:5, height:5, borderRadius:'50%', background:u.dot }} />}
+            {u.label}
+          </span>
+          <span style={{ fontSize:11, color:C.textMuted, fontFamily:'monospace' }}>{req.id}</span>
+        </div>
+
+        {/* 제목 */}
+        <div style={{ fontSize:16, fontWeight:700, color:C.textPri, marginBottom:6 }}>
+          {req.title}
+        </div>
+
+        {/* 위치 */}
+        <div style={{
+          display:'flex', alignItems:'center', gap:4,
+          fontSize:13, color: isCritical ? C.danger : C.textSec,
+          fontWeight: isCritical ? 600 : 500, marginBottom: 8,
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          {req.location}
+        </div>
+
+        {/* 상세 내용 */}
+        <div style={{
+          fontSize:13, color:C.textSec, lineHeight: 1.6,
+          marginBottom: 10,
+          display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
+          overflow:'hidden',
+        }}>
+          {req.desc}
+        </div>
+
+        {/* 요청자 + 시각 */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:C.textMuted }}>
+          <div style={{
+            width:22, height:22, borderRadius:'50%',
+            background: `${dc}22`, color: dc,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:11, fontWeight:700,
+          }}>{req.employee[0]}</div>
+          <span style={{ fontWeight:600, color: C.textPri }}>{req.employee}</span>
+          <span style={{
+            fontSize:11, fontWeight:600, color:dc, background:`${dc}18`,
+            borderRadius:6, padding:'1px 7px',
+          }}>{req.dept}</span>
+          <span style={{ color: C.border }}>·</span>
+          <span style={{ display:'flex', alignItems:'center', gap:3 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            {req.timeAgo} 등록
+          </span>
+        </div>
+
+        {/* 반려 사유 인라인 입력 */}
+        {isRejecting && (
+          <div className="slide-down" style={{
+            marginTop: 14, padding: 14,
+            background: C.dangerSoft, borderRadius: 10,
+            border: `1px solid ${C.dangerBg}`,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.danger, marginBottom: 8, display:'flex', alignItems:'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              반려 사유를 입력해주세요
+            </div>
+            <textarea
+              className="yj-textarea"
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value.slice(0, 200))}
+              placeholder="예: 중복 등록된 요청입니다. 기존 요청 REQ-2604-120 참고 부탁드립니다."
+              style={{
+                width: '100%', height: 64,
+                border: `1.5px solid ${C.border}`, borderRadius: 8,
+                padding: '10px 12px', fontSize: 13, color: C.textPri,
+                fontFamily: "'Noto Sans KR', sans-serif",
+                lineHeight: 1.5, resize: 'none', outline: 'none', background: '#fff',
+                transition: '150ms ease',
+              }}
+            />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap: 8, marginTop: 10 }}>
+              <button
+                onClick={onRejectCancel}
+                style={{
+                  padding: '8px 14px', borderRadius: 8,
+                  border: `1.5px solid ${C.border}`, background: '#fff',
+                  fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer',
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                }}
+              >취소</button>
+              <button
+                onClick={() => onRejectConfirm(req.id, rejectReason)}
+                disabled={!rejectReason.trim()}
+                style={{
+                  padding: '8px 14px', borderRadius: 8, border: 'none',
+                  background: rejectReason.trim() ? C.danger : C.border,
+                  color: rejectReason.trim() ? '#fff' : C.textSec,
+                  fontSize: 13, fontWeight: 700,
+                  cursor: rejectReason.trim() ? 'pointer' : 'not-allowed',
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                }}
+              >반려 확정</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 우측 액션 */}
+      {!isRejecting && (
+        <div style={{ display:'flex', flexDirection:'column', gap:8, flexShrink:0, alignSelf:'center', minWidth: 130 }}>
+          <button
+            onClick={() => onAssign(req)}
+            style={{
+              padding:'11px 18px', borderRadius: 8, border: 'none',
+              background: isCritical ? C.danger : C.primary,
+              color: '#fff', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+              fontFamily: "'Noto Sans KR', sans-serif",
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              transition: '150ms ease',
+            }}
+          >
+            담당자 배정
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+          <button
+            onClick={() => onReject(req.id)}
+            style={{
+              padding:'10px 18px', borderRadius: 8,
+              border: `1.5px solid ${C.border}`, background: '#fff',
+              color: C.textSec, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontFamily: "'Noto Sans KR', sans-serif",
+              transition: '150ms ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = C.danger; e.currentTarget.style.color = C.danger; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}
+          >반려</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 배정 모달 ────────────────────────────────────────
+function AssignModal({ req, onClose, onConfirm }) {
+  const u = URGENCY[req.urgency];
+  // 요청자가 제안한 직군이 기본 선택
+  const [selDept, setSelDept]   = useState(req.dept);
+  const [selStaff, setSelStaff] = useState('');
+  const [priority, setPriority] = useState(req.urgency === 'critical' ? 'high' : req.urgency === 'urgent' ? 'high' : 'medium');
+  const [memo, setMemo]         = useState('');
+  const [due, setDue]           = useState(() => {
+    // 기본 마감: 긴급도에 따라 차등
+    const now = new Date();
+    if (req.urgency === 'critical') now.setHours(now.getHours() + 2);
+    else if (req.urgency === 'urgent') now.setHours(now.getHours() + 6);
+    else { now.setDate(now.getDate() + 1); now.setHours(18, 0, 0, 0); }
+    return now.toISOString().slice(0, 16);
+  });
+
+  const staffList = (STAFF_BY_DEPT[selDept] || []).slice().sort((a,b) => a.load - b.load);
+  const canConfirm = !!selStaff;
+
+  const PRIORITY_OPTS = [
+    { key:'high',   label:'높음', color: C.danger,  bg: C.dangerBg },
+    { key:'medium', label:'보통', color: C.warning, bg: C.warningBg },
+    { key:'low',    label:'낮음', color: C.success, bg: C.successBg },
+  ];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position:'fixed', inset:0, zIndex: 200,
+        background: 'oklch(0% 0 0 / 45%)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding: 24, animation: 'overlayIn 180ms ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 560, maxHeight: '90vh',
+          background: '#fff', borderRadius: 14,
+          display: 'flex', flexDirection: 'column',
+          animation: 'modalIn 220ms cubic-bezier(0.34,1.2,0.64,1)',
+          boxShadow: '0 24px 60px oklch(0% 0 0 / 25%)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* 모달 헤더 */}
+        <div style={{
+          padding: '18px 22px', borderBottom: `1px solid ${C.border}`,
+          display:'flex', alignItems:'center', justifyContent:'space-between',
+        }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.textPri }}>담당자 배정</div>
+            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>요청 {req.id}</div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 32, height: 32, borderRadius: 8,
+            border: 'none', background: 'transparent', cursor: 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            color: C.textSec,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* 모달 본문 */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+          {/* 요청 요약 */}
+          <div style={{
+            background: req.urgency === 'critical' ? C.dangerSoft : C.pageBg,
+            border: `1px solid ${req.urgency === 'critical' ? C.dangerBg : C.border}`,
+            borderRadius: 10, padding: '12px 14px', marginBottom: 18,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap: 6, marginBottom: 6 }}>
+              <span style={{
+                fontSize: 10.5, fontWeight: 700, color: u.color,
+                background: u.bg, borderRadius: 5, padding: '2px 7px',
+              }}>{u.label}</span>
+              <span style={{ fontSize: 12, color: C.textMuted }}>{req.employee} · {req.timeAgo}</span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.textPri, marginBottom: 3 }}>
+              {req.title}
+            </div>
+            <div style={{ fontSize: 12.5, color: C.textSec, display:'flex', alignItems:'center', gap: 4 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+              {req.location}
+            </div>
+          </div>
+
+          {/* 직군 선택 */}
+          <FormRow label="담당 직군" required>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {['보안', '청소', '시설'].map(d => {
+                const active = selDept === d;
+                const dc = DEPT_COLOR[d];
+                const suggested = req.dept === d;
+                return (
+                  <button key={d} onClick={() => { setSelDept(d); setSelStaff(''); }} style={{
+                    padding: '11px 8px', borderRadius: 8,
+                    border: active ? `2px solid ${dc}` : `1.5px solid ${C.border}`,
+                    background: active ? `${dc}12` : '#fff',
+                    color: active ? dc : C.textPri,
+                    fontSize: 14, fontWeight: active ? 700 : 600,
+                    cursor: 'pointer', position: 'relative',
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                    transition: '150ms ease',
+                  }}>
+                    {d}
+                    {suggested && (
+                      <span style={{
+                        position: 'absolute', top: -7, right: -6,
+                        fontSize: 9, fontWeight: 700, color: '#fff',
+                        background: C.primary, borderRadius: 4,
+                        padding: '1px 5px', letterSpacing: '0.04em',
+                      }}>요청자 제안</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </FormRow>
+
+          {/* 배정 직원 */}
+          <FormRow label="배정 직원" required>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {staffList.map((s, i) => {
+                const active = selStaff === s.id;
+                const loadColor = s.load <= 2 ? C.success : s.load <= 4 ? C.warning : C.danger;
+                const loadLabel = s.load <= 2 ? '여유' : s.load <= 4 ? '보통' : '바쁨';
+                return (
+                  <label key={s.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '11px 14px', borderRadius: 8,
+                    border: `1.5px solid ${active ? C.primary : C.border}`,
+                    background: active ? C.primarySoft : '#fff',
+                    cursor: 'pointer', transition: '150ms ease',
+                  }}>
+                    <input
+                      type="radio" name="staff" value={s.id}
+                      checked={active}
+                      onChange={() => setSelStaff(s.id)}
+                      style={{ accentColor: C.primary, width: 16, height: 16 }}
+                    />
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%',
+                      background: `${DEPT_COLOR[selDept]}22`, color: DEPT_COLOR[selDept],
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize: 12, fontWeight: 700,
+                    }}>{s.name[0]}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>{s.name}</span>
+                        {i === 0 && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: C.success,
+                            background: C.successBg, borderRadius: 4, padding: '1px 6px',
+                          }}>가장 여유</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 1 }}>
+                        진행중 업무 {s.load}건 · {s.status}
+                      </div>
+                    </div>
+                    {/* 부하 바 */}
+                    <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
+                      <div style={{ width: 56, height: 5, borderRadius: 3, background: C.border, overflow:'hidden' }}>
+                        <div style={{
+                          width: `${Math.min(100, s.load * 16)}%`, height: '100%',
+                          background: loadColor, transition: '200ms ease',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: loadColor, minWidth: 28 }}>{loadLabel}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </FormRow>
+
+          {/* 우선순위 + 마감 (2단) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 18 }}>
+            <div>
+              <FieldLabel label="우선순위" required />
+              <div style={{ display:'flex', gap: 6 }}>
+                {PRIORITY_OPTS.map(p => {
+                  const active = priority === p.key;
+                  return (
+                    <button key={p.key} onClick={() => setPriority(p.key)} style={{
+                      flex: 1, padding: '10px 0', borderRadius: 8,
+                      border: active ? `2px solid ${p.color}` : `1.5px solid ${C.border}`,
+                      background: active ? p.bg : '#fff',
+                      color: active ? p.color : C.textPri,
+                      fontSize: 13, fontWeight: active ? 700 : 600,
+                      cursor: 'pointer', fontFamily: "'Noto Sans KR', sans-serif",
+                      transition: '150ms ease',
+                    }}>{p.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <FieldLabel label="마감일시" required />
+              <input
+                className="yj-input"
+                type="datetime-local"
+                value={due}
+                onChange={e => setDue(e.target.value)}
+                style={{
+                  width: '100%', height: 40,
+                  border: `1.5px solid ${C.border}`,
+                  borderRadius: 8, padding: '0 12px',
+                  fontSize: 13, color: C.textPri,
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  outline: 'none', background: '#fff',
+                  transition: '150ms ease',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 메모 */}
+          <FormRow label="관리자 메모" optional>
+            <textarea
+              className="yj-textarea"
+              value={memo}
+              onChange={e => setMemo(e.target.value.slice(0, 300))}
+              placeholder="직원에게 전달할 추가 지시사항"
+              style={{
+                width: '100%', height: 64,
+                border: `1.5px solid ${C.border}`,
+                borderRadius: 8, padding: '10px 12px',
+                fontSize: 13, color: C.textPri,
+                fontFamily: "'Noto Sans KR', sans-serif",
+                lineHeight: 1.5, resize: 'none',
+                outline: 'none', background: '#fff',
+                transition: '150ms ease',
+              }}
+            />
+          </FormRow>
+        </div>
+
+        {/* 모달 푸터 */}
+        <div style={{
+          padding: '14px 22px', borderTop: `1px solid ${C.border}`,
+          display: 'flex', gap: 10, justifyContent: 'flex-end',
+          background: C.pageBg,
+        }}>
+          <button onClick={onClose} style={{
+            padding: '11px 20px', borderRadius: 8,
+            border: `1.5px solid ${C.border}`, background: '#fff',
+            fontSize: 14, fontWeight: 600, color: C.textSec, cursor: 'pointer',
+            fontFamily: "'Noto Sans KR', sans-serif",
+          }}>취소</button>
+          <button
+            onClick={() => canConfirm && onConfirm()}
+            disabled={!canConfirm}
+            style={{
+              padding: '11px 24px', borderRadius: 8, border: 'none',
+              background: canConfirm ? C.primary : C.border,
+              color: canConfirm ? '#fff' : C.textSec,
+              fontSize: 14, fontWeight: 700,
+              cursor: canConfirm ? 'pointer' : 'not-allowed',
+              fontFamily: "'Noto Sans KR', sans-serif",
+            }}
+          >배정 확정</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldLabel({ label, required, optional }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>{label}</span>
+      {required && (
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: C.danger,
+          background: C.dangerBg, padding: '1px 5px', borderRadius: 3,
+        }}>필수</span>
+      )}
+      {optional && (
+        <span style={{
+          fontSize: 10, fontWeight: 600, color: C.textSec,
+          background: C.pageBg, padding: '1px 5px', borderRadius: 3,
+        }}>선택</span>
+      )}
+    </div>
+  );
+}
+
+function FormRow({ label, required, optional, children }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <FieldLabel label={label} required={required} optional={optional} />
+      {children}
+    </div>
+  );
+}
+
+// ── 빈 상태 ───────────────────────────────────────────
+function EmptyState({ tab }) {
+  const messages = {
+    pending: { title: '처리할 요청이 없습니다', desc: '새로운 업무 요청이 들어오면 여기에 표시돼요.' },
+    assigned: { title: '배정 완료된 요청이 없습니다', desc: '담당자 배정이 완료된 요청이 여기에 표시돼요.' },
+    rejected: { title: '반려된 요청이 없습니다', desc: '반려 처리된 요청이 여기에 표시돼요.' },
+    all: { title: '요청이 없습니다', desc: '아직 등록된 업무 요청이 없어요.' },
+  };
+  const m = messages[tab] || messages.all;
+  return (
+    <div style={{
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+      padding:'80px 0', gap: 10, color: C.textMuted,
+      background: '#fff', borderRadius: 12, border: `1px dashed ${C.border}`,
+    }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: '50%',
+        background: C.successBg, color: C.success,
+        display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.textPri, marginTop: 4 }}>{m.title}</div>
+      <div style={{ fontSize: 13, color: C.textMuted }}>{m.desc}</div>
+    </div>
+  );
+}
+
+// ── 메인 콘텐츠 ──────────────────────────────────────
+function RequestList() {
+  const [tab, setTab] = useState('pending');
+  const [requests, setRequests] = useState(INITIAL_REQUESTS);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [rejectingId, setRejectingId]   = useState(null);
+
+  // 정렬: 매우 긴급 → 긴급 → 일반, 그 안에서 최신순
+  function sortedReqs(list) {
+    return list.slice().sort((a, b) => {
+      const ra = URGENCY[a.urgency].rank;
+      const rb = URGENCY[b.urgency].rank;
+      return ra - rb;
+    });
+  }
+
+  const TAB_DEFS = [
+    { key:'pending',  label:'미처리',     count: requests.filter(r => r.status==='pending').length },
+    { key:'assigned', label:'배정 완료',  count: requests.filter(r => r.status==='assigned').length },
+    { key:'rejected', label:'반려됨',     count: requests.filter(r => r.status==='rejected').length },
+    { key:'all',      label:'전체',       count: requests.length },
+  ];
+
+  const filtered = tab === 'all' ? requests : requests.filter(r => r.status === tab);
+  const display = sortedReqs(filtered);
+
+  function handleAssignConfirm() {
+    setRequests(prev => prev.map(r => r.id === assignTarget.id ? { ...r, status: 'assigned', isNew: false } : r));
+    setAssignTarget(null);
+  }
+  function handleRejectConfirm(id, reason) {
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected', isNew: false } : r));
+    setRejectingId(null);
+  }
+
+  const criticalCount = requests.filter(r => r.urgency === 'critical' && r.status === 'pending').length;
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', minWidth:0 }}>
+      {/* 헤더 */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 8 }}>
+        <div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:C.textPri }}>업무 요청 관리</h1>
+          <div style={{ fontSize:13, color:C.textMuted, marginTop:3 }}>
+            현장 직원이 등록한 요청을 검토하고 담당자를 배정하세요
+          </div>
+        </div>
+        <div style={{
+          display:'flex', alignItems:'center', gap:6,
+          background:'oklch(20% 0.04 160 / 8%)',
+          border:'1px solid oklch(62% 0.15 160 / 30%)',
+          borderRadius:8, padding:'7px 14px',
+        }}>
+          <span style={{ width:8, height:8, borderRadius:'50%', background:C.success, display:'inline-block', animation:'pulse 1.5s ease infinite' }} />
+          <span style={{ fontSize:12, fontWeight:700, color:C.success, letterSpacing:'0.05em' }}>LIVE</span>
+          <span style={{ fontSize:12, color:C.textSec }}>실시간 자동 갱신 중</span>
+        </div>
+      </div>
+
+      {/* 매우 긴급 알림 배너 */}
+      {criticalCount > 0 && tab === 'pending' && (
+        <div style={{
+          marginTop: 18, marginBottom: 4,
+          padding: '12px 16px',
+          background: C.dangerSoft,
+          border: `1.5px solid ${C.danger}`,
+          borderRadius: 10,
+          display:'flex', alignItems:'center', gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: C.danger, color: '#fff',
+            display:'flex', alignItems:'center', justifyContent:'center', flexShrink: 0,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.danger }}>
+              매우 긴급 요청 {criticalCount}건이 처리 대기 중입니다
+            </div>
+            <div style={{ fontSize: 12.5, color: C.textSec, marginTop: 2 }}>
+              지금 바로 담당자를 배정해주세요. 목록 최상단에 강조 표시됩니다.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 탭 */}
+      <div style={{ display:'flex', gap:0, borderBottom:`1px solid ${C.border}`, marginTop: 22, marginBottom: 20 }}>
+        {TAB_DEFS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            padding:'10px 20px', border:'none', background:'none', cursor:'pointer',
+            fontSize:14, fontWeight: tab===t.key ? 700 : 400,
+            color: tab===t.key ? C.primary : C.textSec,
+            borderBottom: tab===t.key ? `2px solid ${C.primary}` : '2px solid transparent',
+            fontFamily:"'Noto Sans KR', sans-serif", transition:'150ms ease',
+            display:'flex', alignItems:'center', gap:6,
+            marginBottom:-1,
+          }}>
+            {t.label}
+            <span style={{
+              fontSize:11, fontWeight:700, borderRadius:10, padding:'1px 7px',
+              background: tab===t.key
+                ? (t.key==='pending' && t.count > 0 ? C.danger : C.primary)
+                : C.border,
+              color: tab===t.key ? '#fff' : C.textSec,
+              transition:'150ms ease',
+            }}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 카드 목록 */}
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {display.length === 0
+          ? <EmptyState tab={tab} />
+          : display.map(req => (
+            <RequestCard
+              key={req.id} req={req}
+              onAssign={setAssignTarget}
+              onReject={setRejectingId}
+              rejectingId={rejectingId}
+              onRejectCancel={() => setRejectingId(null)}
+              onRejectConfirm={handleRejectConfirm}
+            />
+          ))
+        }
+      </div>
+
+      {/* 모달 */}
+      {assignTarget && (
+        <AssignModal
+          req={assignTarget}
+          onClose={() => setAssignTarget(null)}
+          onConfirm={handleAssignConfirm}
+        />
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar active="requests" />
+      <RequestList />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
