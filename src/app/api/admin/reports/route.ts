@@ -93,6 +93,7 @@ export async function GET(req: Request) {
 
     return {
       id:           r.id,
+      taskId,
       status:       r.status,
       timeAgo:      timeAgo(r.created_at),
       createdAt:    r.created_at,

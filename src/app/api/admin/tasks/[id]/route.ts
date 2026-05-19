@@ -42,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     supabaseAdmin
       .from('reports')
-      .select('id, status, memo, created_at, reviewed_at, staff:submitted_by_id(name), admins:reviewed_by_id(name)')
+      .select('id, status, memo, created_at, reviewed_at, staff:submitted_by_id(name), admins:reviewed_by_id(name), report_photos(storage_path, sort_order)')
       .eq('task_id', id)
       .order('created_at', { ascending: false }),
   ]);
@@ -75,11 +75,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       )).filter(Boolean) as string[]
     : [];
 
+  // 가장 최근 보고의 사진 서명 URL 변환
+  const latestReport = (reportsRes.data ?? [])[0] as any;
+  const submittedPhotos: string[] = [];
+  if (latestReport?.report_photos?.length > 0) {
+    const sorted = [...latestReport.report_photos].sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const urls = await Promise.all(
+      sorted.map(async (p: any) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from('report-photos')
+          .createSignedUrl(p.storage_path, 3600);
+        return signed?.signedUrl ?? null;
+      })
+    );
+    submittedPhotos.push(...(urls.filter(Boolean) as string[]));
+  }
+
   return NextResponse.json({
     ...mapAdminTask(taskRes.data),
     reports,
     referenceImages,
     referenceImagePaths: paths,
+    submittedPhotos,
   });
 }
 

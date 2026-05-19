@@ -1,8 +1,9 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import ImageLightbox from '@/components/ImageLightbox';
 import type { Task, TaskStatus } from '@/types';
 import { PRIORITY_CONFIG, STATUS_CONFIG } from '@/constants/task-config';
 import { getFullDateTimeLabel, getDateOnlyLabel } from '@/lib/date';
@@ -177,6 +178,7 @@ export default function TaskDetailPage({
 }) {
   const { id }  = use(params);
   const router  = useRouter();
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
 
   const { data: task, isLoading, isError } = useQuery<Task>({
     queryKey: ['task', id],
@@ -292,12 +294,6 @@ export default function TaskDetailPage({
 
           <InfoRow icon={<IconClock />} label="마감일시" value={getFullDateTimeLabel(task.deadline)} />
           <Divider />
-          {task.location && (
-            <>
-              <InfoRow icon={<IconMapPin />} label="위치" value={task.location} />
-              <Divider />
-            </>
-          )}
           <InfoRow
             icon={<IconUser />}
             label="배정자"
@@ -305,6 +301,47 @@ export default function TaskDetailPage({
           />
           <Divider />
           <InfoRow icon={<IconCalendar />} label="배정일" value={getDateOnlyLabel(task.createdAt)} />
+          <Divider />
+          <InfoRow
+            icon={<IconClock />}
+            label="반복"
+            value={task.repeatType && task.repeatType !== 'none' ? ({ daily: '매일', weekly: '매주', monthly: '매월', yearly: '매년' }[task.repeatType] ?? '—') : '—'}
+          />
+          {(task as any).approvedBy && (
+            <>
+              <Divider />
+              <InfoRow
+                icon={<IconUser />}
+                label="승인자"
+                value={(task as any).approvedBy}
+              />
+            </>
+          )}
+          {(task as any).approvedAt && (
+            <>
+              <Divider />
+              <InfoRow
+                icon={<IconCalendar />}
+                label="승인일"
+                value={getDateOnlyLabel((task as any).approvedAt)}
+              />
+            </>
+          )}
+
+          {/* 완료 업무 안내 (done 상태일 때) */}
+          {task.status === 'done' && (
+            <>
+              <Divider />
+              <div style={{ paddingTop: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(55% 0.14 195)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span style={{ fontSize: 13, color: 'oklch(55% 0.14 195)', lineHeight: 1.5 }}>
+                  이 업무는 완료 후 7일간 확인할 수 있어요.
+                </span>
+              </div>
+            </>
+          )}
 
           {/* 재작업 사유 (rework 상태일 때만) */}
           {task.status === 'rework' && task.reworkReason && (
@@ -338,9 +375,9 @@ export default function TaskDetailPage({
           )}
         </Card>
 
-        {/* ── 업무 지시사항 카드 ── */}
+        {/* ── 업무 설명 카드 ── */}
         <Card>
-          <SectionTitle>업무 지시사항</SectionTitle>
+          <SectionTitle>업무 설명</SectionTitle>
           <p
             style={{
               fontSize: 14,
@@ -359,11 +396,11 @@ export default function TaskDetailPage({
             <SectionTitle>참고 이미지</SectionTitle>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {(task.referenceImages ?? []).map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'block', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid oklch(88% 0.008 240)' }}>
+                <button key={i} type="button" onClick={() => setLightbox({ images: task.referenceImages!, index: i })}
+                  style={{ width: 90, height: 90, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid oklch(88% 0.008 240)', cursor: 'pointer', padding: 0 }}>
                   <img src={url} alt={`참고 이미지 ${i + 1}`}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                </a>
+                </button>
               ))}
             </div>
           </Card>
@@ -375,11 +412,11 @@ export default function TaskDetailPage({
             <SectionTitle>제출한 사진</SectionTitle>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {((task as any).submittedPhotos as string[]).map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'block', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid oklch(88% 0.008 240)' }}>
+                <button key={i} type="button" onClick={() => setLightbox({ images: (task as any).submittedPhotos, index: i })}
+                  style={{ width: 90, height: 90, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid oklch(88% 0.008 240)', cursor: 'pointer', padding: 0 }}>
                   <img src={url} alt={`제출 사진 ${i + 1}`}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                </a>
+                </button>
               ))}
             </div>
           </Card>
@@ -421,6 +458,15 @@ export default function TaskDetailPage({
           {btn.label}
         </button>
       </div>
+
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onNav={i => setLightbox({ ...lightbox, index: i })}
+        />
+      )}
     </div>
   );
 }

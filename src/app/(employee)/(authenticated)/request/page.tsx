@@ -21,7 +21,8 @@ const C = {
   textMuted:'oklch(65% 0.01 260)',
 };
 
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 5;
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
 interface PhotoItem { id: string; file: File; preview: string; }
 
 const TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => {
@@ -80,6 +81,7 @@ export default function RequestPage() {
     for (const file of Array.from(files)) {
       if (photos.length >= MAX_PHOTOS) break;
       if (!file.type.startsWith('image/') && !file.name.match(/\.(heic|heif)$/i)) continue;
+      if (file.size > MAX_FILE_BYTES) continue;
       const preview = URL.createObjectURL(file);
       setPhotos(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, file, preview }]);
     }

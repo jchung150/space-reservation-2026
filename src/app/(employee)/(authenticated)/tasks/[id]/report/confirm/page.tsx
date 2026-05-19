@@ -570,23 +570,39 @@ export default function ReportConfirmPage({ params }: { params: Promise<{ id: st
       }
       const { reportId } = await res.json();
 
-      /* ── 2. 사진 업로드 (objectURL → blob → FormData) ── */
-      const photoUrls = draft?.photoUrls ?? [];
-      if (reportId && photoUrls.length > 0) {
+      /* ── 2. 사진 업로드 (File 객체 우선, fallback: objectURL) ── */
+      const photoFiles = draft?.photoFiles ?? [];
+      const photoUrls  = draft?.photoUrls  ?? [];
+      const hasPhotos  = photoFiles.length > 0 || photoUrls.length > 0;
+
+      if (reportId && hasPhotos) {
         const formData = new FormData();
-        for (let i = 0; i < photoUrls.length; i++) {
-          try {
-            const blob = await fetch(photoUrls[i]).then(r => r.blob());
-            formData.append('photos', blob, `photo-${i}`);
-          } catch {
-            // objectURL이 이미 해제된 경우 건너뜀
+
+        if (photoFiles.length > 0) {
+          // File 객체가 있으면 직접 사용 (objectURL 만료 무관)
+          photoFiles.forEach((file, i) => {
+            formData.append('photos', file, file.name || `photo-${i}`);
+          });
+        } else {
+          // fallback: objectURL에서 blob 획득
+          for (let i = 0; i < photoUrls.length; i++) {
+            try {
+              const blob = await fetch(photoUrls[i]).then(r => r.blob());
+              formData.append('photos', blob, `photo-${i}`);
+            } catch {
+              console.error('[confirm] objectURL fetch failed:', photoUrls[i]);
+            }
           }
         }
+
         if (formData.has('photos')) {
-          await fetch(`/api/reports/${reportId}/photos`, {
+          const uploadRes = await fetch(`/api/reports/${reportId}/photos`, {
             method: 'POST',
             body:   formData,
           });
+          if (!uploadRes.ok) {
+            console.error('[confirm] 사진 업로드 실패', await uploadRes.text());
+          }
         }
       }
 

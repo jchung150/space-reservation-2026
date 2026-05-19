@@ -1,9 +1,10 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import ImageLightbox from '@/components/ImageLightbox';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PRIORITY_CONFIG } from '@/constants/task-config';
 import { getFullDateTimeLabel, getDateOnlyLabel } from '@/lib/date';
 
@@ -20,11 +21,11 @@ const C = {
 };
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  todo:           { label: '미완료',      color: C.textSec,  bg: C.pageBg    },
-  in_progress:    { label: '진행 중',     color: C.primary,  bg: C.primaryBg },
-  pending_review: { label: '검토 대기',   color: C.pending,  bg: C.pendingBg },
-  done:           { label: '완료',        color: C.success,  bg: C.successBg },
-  rework:         { label: '재작업',     color: C.danger,   bg: C.dangerBg  },
+  todo:           { label: '미완료',    color: C.textSec,  bg: C.pageBg    },
+  in_progress:    { label: '진행 중',   color: C.primary,  bg: C.primaryBg },
+  pending_review: { label: '검토 대기', color: C.pending,  bg: C.pendingBg },
+  done:           { label: '완료',      color: C.success,  bg: C.successBg },
+  rework:         { label: '재작업',    color: C.danger,   bg: C.dangerBg  },
 };
 
 const REPORT_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
@@ -36,15 +37,14 @@ const REPORT_STATUS_CFG: Record<string, { label: string; color: string; bg: stri
 const REPEAT_LABEL: Record<string, string> = {
   none: '없음', daily: '매일', weekly: '매주', monthly: '매월', yearly: '매년',
 };
-const DAY_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
 
 /* ── 섹션 카드 ──────────────────────────────────────────────────── */
 function Card({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 16 }}>
       {title && (
-        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${C.border}`, background: C.pageBg }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: C.textSec, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{title}</span>
+        <div style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: C.pageBg }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.textSec, letterSpacing: '0.04em' }}>{title}</span>
         </div>
       )}
       <div style={{ padding: 20 }}>{children}</div>
@@ -52,12 +52,11 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
   );
 }
 
-/* ── 정보 행 ────────────────────────────────────────────────────── */
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '9px 0', borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
       <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0, width: 72, paddingTop: 1 }}>{label}</span>
-      <span style={{ fontSize: 14, color: C.textPri, fontWeight: 600, flex: 1 }}>{children}</span>
+      <span style={{ fontSize: 13, color: C.textPri, fontWeight: 600, flex: 1 }}>{children}</span>
     </div>
   );
 }
@@ -75,6 +74,51 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
       return res.json();
     },
     staleTime: 0,
+  });
+
+  const queryClient = useQueryClient();
+  const [lightbox,   setLightbox]   = useState<{ images: string[]; index: number } | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [showReject, setShowReject] = useState(false);
+  const [reviewErr,  setReviewErr]  = useState('');
+  const [toast,      setToast]      = useState('');
+
+  const approveMutation = useMutation({
+    mutationFn: (reportId: string) =>
+      fetch(`/api/admin/reports/${reportId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' }),
+      }).then(r => { if (!r.ok) throw new Error('승인 실패'); }),
+    onSuccess: () => {
+      setReviewErr('');
+      queryClient.invalidateQueries({ queryKey: ['admin-task-detail', id] });
+      setToast('보고가 승인되었습니다.');
+      setTimeout(() => setToast(''), 2000);
+    },
+    onError: () => setReviewErr('승인에 실패했습니다.'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (reportId: string) =>
+      fetch(`/api/admin/reports/${reportId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', rejectReason: rejectNote }),
+      }).then(r => { if (!r.ok) throw new Error('반려 실패'); }),
+    onSuccess: () => { setShowReject(false); setRejectNote(''); setReviewErr(''); queryClient.invalidateQueries({ queryKey: ['admin-task-detail', id] }); },
+    onError: () => setReviewErr('반려에 실패했습니다.'),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (reportId: string) =>
+      fetch(`/api/admin/reports/${reportId}/archive`, { method: 'POST' })
+        .then(r => { if (!r.ok) throw new Error('저장 실패'); }),
+    onSuccess: () => {
+      setReviewErr('');
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] });
+      setToast('업무가 아카이브에 저장되었습니다.');
+      setTimeout(() => router.push('/admin/tasks'), 1500);
+    },
+    onError: () => setReviewErr('저장에 실패했습니다.'),
   });
 
   if (isLoading) {
@@ -95,99 +139,75 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
 
   const p   = PRIORITY_CONFIG[task.priority as 'high' | 'medium' | 'low'] ?? PRIORITY_CONFIG.medium;
   const s   = STATUS_CFG[task.status] ?? STATUS_CFG.todo;
-  const reports: any[]         = task.reports ?? [];
+  const reports: any[]            = task.reports ?? [];
   const referenceImages: string[] = task.referenceImages ?? [];
+  const submittedPhotos: string[] = task.submittedPhotos ?? [];
+
+  // 가장 최근 보고
+  const latestReport = reports[0] ?? null;
+  const isPending    = latestReport?.status === 'pending';
+  const isApproved   = latestReport?.status === 'approved';
 
   return (
-    <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', minWidth: 0 }}>
-      {/* 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button type="button" onClick={() => router.push('/admin/tasks')} aria-label="목록으로"
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+
+      {/* 페이지 헤더 */}
+      <div style={{ padding: '20px 32px 16px', borderBottom: `1px solid ${C.border}`, background: '#fff', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <button type="button" onClick={() => router.push('/admin/tasks')}
           style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textSec, flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 4 }}>업무 관리</div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.textPri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</h1>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 2 }}>업무 관리</div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.textPri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</h1>
         </div>
-        {/* 수정 버튼 */}
-        <Link href={`/admin/tasks/${id}/edit`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textSec, fontSize: 13, fontWeight: 600, textDecoration: 'none', transition: '150ms ease' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          수정
-        </Link>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '5px 10px' }}>{p.label}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: s.color, background: s.bg, borderRadius: 6, padding: '5px 10px' }}>{s.label}</span>
+          <Link href={`/admin/tasks/${id}/edit`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textSec, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            수정
+          </Link>
+        </div>
       </div>
 
-      {/* 2열 레이아웃 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      {/* 2컬럼 분할 */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* 왼쪽 열 */}
-        <div>
+        {/* ── 좌측: 업무 내용 (60%) ── */}
+        <div className="admin-scroll" style={{ flex: '0 0 60%', overflowY: 'auto', padding: '24px 24px 24px 32px', borderRight: `1px solid ${C.border}` }}>
+
           {/* 기본 정보 */}
           <Card title="기본 정보">
-            {/* 배지 행 */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '4px 10px' }}>{p.label}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: s.color, background: s.bg, borderRadius: 6, padding: '4px 10px' }}>{s.label}</span>
-            </div>
-
             <InfoRow label="담당 직원">{task.employeeName || '—'}</InfoRow>
             <InfoRow label="직군">{task.dept || '—'}</InfoRow>
-            <InfoRow label="위치">{task.location || '—'}</InfoRow>
             <InfoRow label="마감일시">
               <span style={{ color: new Date(task.deadline) < new Date() && task.status !== 'done' ? C.danger : C.textPri }}>
                 {getFullDateTimeLabel(task.deadline)}
               </span>
             </InfoRow>
-            <InfoRow label="배정일">
-              <span style={{ borderBottom: 'none' }}>{getDateOnlyLabel(task.createdAt)}</span>
+            <InfoRow label="배정자">{task.assignedByName || task.employeeName || '—'}</InfoRow>
+            <InfoRow label="배정일">{getDateOnlyLabel(task.createdAt)}</InfoRow>
+            <InfoRow label="반복">
+              {task.repeatType && task.repeatType !== 'none'
+                ? (REPEAT_LABEL[task.repeatType] ?? task.repeatType)
+                : '—'}
             </InfoRow>
-            {task.assignedByName && (
-              <InfoRow label="배정자">{task.assignedByName}</InfoRow>
-            )}
-
-            {/* 재작업 사유 */}
             {task.status === 'rework' && task.reworkReason && (
-              <div style={{ marginTop: 14, background: C.dangerBg, border: `1px solid oklch(88% 0.06 25)`, borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.danger, marginBottom: 6 }}>반려 사유</div>
+              <div style={{ marginTop: 12, background: C.dangerBg, border: `1px solid oklch(88% 0.06 25)`, borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.danger, marginBottom: 4 }}>반려 사유</div>
                 <div style={{ fontSize: 13, color: C.danger, lineHeight: 1.6 }}>{task.reworkReason}</div>
               </div>
             )}
           </Card>
 
-          {/* 반복 설정 */}
-          {task.repeatType && task.repeatType !== 'none' && (
-            <Card title="반복 설정">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <InfoRow label="반복 주기">{REPEAT_LABEL[task.repeatType] ?? task.repeatType}</InfoRow>
-                {task.repeatType === 'weekly' && task.repeatDays?.length > 0 && (
-                  <InfoRow label="반복 요일">
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {(task.repeatDays as number[]).map(d => (
-                        <span key={d} style={{ width: 28, height: 28, borderRadius: '50%', background: C.primaryBg, color: C.primary, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {DAY_LABEL[d]}
-                        </span>
-                      ))}
-                    </div>
-                  </InfoRow>
-                )}
-                {task.repeatType === 'monthly' && task.repeatDate && (
-                  <InfoRow label="반복 날짜">매월 {task.repeatDate}일</InfoRow>
-                )}
-              </div>
-            </Card>
-          )}
-        </div>
-
-        {/* 오른쪽 열 */}
-        <div>
-          {/* 업무 지시사항 */}
-          <Card title="업무 지시사항">
-            {task.description ? (
-              <p style={{ fontSize: 14, color: C.textPri, lineHeight: 1.75, whiteSpace: 'pre-line' }}>{task.description}</p>
-            ) : (
-              <p style={{ fontSize: 13, color: C.textMuted }}>업무 설명이 없습니다.</p>
-            )}
+          {/* 업무 설명 */}
+          <Card title="업무 설명">
+            {task.description
+              ? <p style={{ fontSize: 14, color: C.textPri, lineHeight: 1.75, whiteSpace: 'pre-line', margin: 0 }}>{task.description}</p>
+              : <p style={{ fontSize: 13, color: C.textMuted, margin: 0 }}>업무 설명이 없습니다.</p>
+            }
           </Card>
 
           {/* 참고 이미지 */}
@@ -195,51 +215,143 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
             <Card title={`참고 이미지 (${referenceImages.length}장)`}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                 {referenceImages.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'block', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: `1px solid ${C.border}` }}>
-                    <img src={url} alt={`참고 이미지 ${i + 1}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  </a>
+                  <button key={i} type="button" onClick={() => setLightbox({ images: referenceImages, index: i })}
+                    style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: `1px solid ${C.border}`, cursor: 'pointer', padding: 0 }}>
+                    <img src={url} alt={`참고 이미지 ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </button>
                 ))}
               </div>
             </Card>
           )}
+        </div>
 
-          {/* 완료 보고 목록 */}
-          <Card title={`완료 보고 (${reports.length}건)`}>
-            {reports.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: C.textMuted, fontSize: 13 }}>
-                제출된 완료 보고가 없습니다.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {reports.map((r: any) => {
-                  const rs = REPORT_STATUS_CFG[r.status] ?? REPORT_STATUS_CFG.pending;
-                  return (
-                    <div key={r.id} style={{ background: C.pageBg, borderRadius: 10, border: `1px solid ${C.border}`, padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: rs.color, background: rs.bg, borderRadius: 6, padding: '2px 8px' }}>{rs.label}</span>
-                          <span style={{ fontSize: 12, color: C.textMuted }}>{r.submittedBy} · {r.timeAgo}</span>
-                        </div>
-                        <Link href={`/admin/reports/${r.id}`}
-                          style={{ fontSize: 12, fontWeight: 600, color: C.primary, textDecoration: 'none' }}>
-                          검토 →
-                        </Link>
-                      </div>
-                      {r.memo && (
-                        <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                          {r.memo}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+        {/* ── 우측: 보고 및 검토 (40%) ── */}
+        <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+          {/* 보고 내용 스크롤 영역 */}
+          <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '24px 32px 24px 24px' }}>
+
+            {/* 보고 없음 */}
+            {!latestReport && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: C.textMuted, gap: 10, paddingTop: 60 }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="9" y1="13" x2="15" y2="13"/>
+                </svg>
+                <span style={{ fontSize: 14 }}>아직 제출된 보고가 없습니다</span>
               </div>
             )}
-          </Card>
+
+            {/* 보고 있음 */}
+            {latestReport && (
+              <>
+                {/* 완료 보고 카드 */}
+                <Card title="완료 보고">
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
+                    {latestReport.submittedBy} · {latestReport.timeAgo}
+                  </div>
+                  {latestReport.memo
+                    ? <p style={{ fontSize: 14, color: C.textPri, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>{latestReport.memo}</p>
+                    : <p style={{ fontSize: 13, color: C.textMuted, margin: 0 }}>메모 없음</p>
+                  }
+                  {reports.length > 1 && (
+                    <div style={{ marginTop: 12, fontSize: 12, color: C.textMuted }}>이전 보고 {reports.length - 1}건 더 있음</div>
+                  )}
+                </Card>
+
+                {/* 제출 사진 카드 */}
+                {submittedPhotos.length > 0 && (
+                  <Card title={`제출 사진 (${submittedPhotos.length}장)`}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {submittedPhotos.map((url, i) => (
+                        <button key={i} type="button" onClick={() => setLightbox({ images: submittedPhotos, index: i })}
+                          style={{ width: 80, height: 80, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: `1px solid ${C.border}`, cursor: 'pointer', padding: 0 }}>
+                          <img src={url} alt={`제출 사진 ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* ── 검토 액션 (하단 고정) ── */}
+          {latestReport && (isPending || isApproved) && (
+            <div style={{ padding: '16px 32px 20px 24px', borderTop: `1px solid ${C.border}`, background: '#fff', flexShrink: 0 }}>
+              {reviewErr && (
+                <div style={{ marginBottom: 10, padding: '8px 12px', background: C.dangerBg, borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 600 }}>{reviewErr}</div>
+              )}
+
+              {/* 검토 대기 — 승인/반려 */}
+              {isPending && !showReject && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button type="button"
+                    onClick={() => { setReviewErr(''); approveMutation.mutate(latestReport.id); }}
+                    disabled={approveMutation.isPending}
+                    style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {approveMutation.isPending ? '처리 중...' : '승인'}
+                  </button>
+                  <button type="button"
+                    onClick={() => { setShowReject(true); setReviewErr(''); }}
+                    style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textSec, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    반려
+                  </button>
+                </div>
+              )}
+
+              {/* 반려 사유 입력 */}
+              {isPending && showReject && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} rows={3}
+                    placeholder="반려 사유를 입력해주세요. 직원에게 전달됩니다."
+                    style={{ width: '100%', border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'none', outline: 'none', background: C.pageBg }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => { setShowReject(false); setRejectNote(''); }}
+                      style={{ flex: 1, padding: '11px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textSec, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
+                    <button type="button"
+                      onClick={() => { if (!rejectNote.trim()) { setReviewErr('반려 사유를 입력해주세요.'); return; } rejectMutation.mutate(latestReport.id); }}
+                      disabled={rejectMutation.isPending}
+                      style={{ flex: 2, padding: '11px', borderRadius: 8, border: 'none', background: C.danger, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {rejectMutation.isPending ? '처리 중...' : '반려 확인'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 승인 완료 — 저장하기 */}
+              {isApproved && (
+                <button type="button"
+                  onClick={() => { setReviewErr(''); archiveMutation.mutate(latestReport.id); }}
+                  disabled={archiveMutation.isPending}
+                  style={{ width: '100%', padding: '12px', borderRadius: 10, border: `1.5px solid ${C.success}`, background: 'transparent', color: C.success, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {archiveMutation.isPending ? '저장 중...' : '저장하기 →'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 저장 완료 토스트 */}
+      {toast && (
+        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'oklch(18% 0.01 260)', color: '#fff', padding: '16px 28px', borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 500, boxShadow: '0 8px 32px oklch(0% 0 0 / 30%)', display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="oklch(62% 0.15 160)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          {toast}
+        </div>
+      )}
+
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onNav={i => setLightbox({ ...lightbox, index: i })}
+        />
+      )}
     </div>
   );
 }

@@ -86,7 +86,7 @@ function TasksPageContent() {
   });
 
   /* 업무 목록 */
-  const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
+  const { data: tasks = [], isLoading, isError, refetch } = useQuery<Task[]>({
     queryKey: ['tasks'],
     queryFn: () => fetch('/api/tasks').then(r => {
       if (!r.ok) throw new Error('fetch failed');
@@ -130,7 +130,7 @@ function TasksPageContent() {
 
   return (
     <>
-      <EmployeeHeader userName={me?.name ?? '...'} />
+      <EmployeeHeader userName={me?.name ?? '...'} onRefresh={() => refetch()} />
 
       {/* 필터 바 */}
       <div style={{ padding: '10px 16px', background: '#fff', borderBottom: '1px solid oklch(88% 0.008 240)', display: 'flex', flexDirection: 'column', gap: 8 }}>

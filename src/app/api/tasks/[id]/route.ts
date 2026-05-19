@@ -28,7 +28,7 @@ export async function GET(
 
     supabaseAdmin
       .from('reports')
-      .select('id, status, report_photos(storage_path, sort_order)')
+      .select('id, status, reviewed_at, admins:reviewed_by_id(name), report_photos(storage_path, sort_order)')
       .eq('task_id', id)
       .eq('submitted_by_id', session.id)
       .order('created_at', { ascending: false })
@@ -71,5 +71,13 @@ export async function GET(
     reportPhotos.push(...(urls.filter(Boolean) as string[]));
   }
 
-  return NextResponse.json({ ...task, submittedPhotos: reportPhotos });
+  const approvedAt   = latestReport?.reviewed_at      ?? null;
+  const approvedBy   = (latestReport as any)?.admins?.name ?? null;
+
+  // created_by_id가 없는 업무(직원 직접 생성)는 배정자를 직원 본인 이름으로 표시
+  if (!task.assignedByName) {
+    task.assignedByName = session.name;
+  }
+
+  return NextResponse.json({ ...task, submittedPhotos: reportPhotos, approvedAt, approvedBy });
 }

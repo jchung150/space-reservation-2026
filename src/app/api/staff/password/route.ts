@@ -37,7 +37,7 @@ export async function PATCH(req: Request) {
 
   const isValid = await bcrypt.compare(currentPassword, staff.password_hash);
   if (!isValid) {
-    return NextResponse.json({ error: '현재 비밀번호가 올바르지 않습니다.' }, { status: 401 });
+    return NextResponse.json({ error: '현재 비밀번호가 올바르지 않습니다.' }, { status: 400 });
   }
 
   const newHash = await bcrypt.hash(newPassword, 10);

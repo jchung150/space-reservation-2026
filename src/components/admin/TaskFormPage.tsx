@@ -176,7 +176,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
   );
 }
 
-/* ── 날짜/시간 인풋 (네이티브, 스타일드) ────────────────────────── */
+/* ── 날짜/시간 인풋 (네이티브) ──────────────────────────────────── */
 function DateInput({
   value, onChange, error,
 }: {
@@ -193,18 +193,18 @@ function DateInput({
       style={{
         width: '100%', padding: '10px 12px', borderRadius: 8,
         border: `1.5px solid ${error ? C.danger : C.border}`,
-        background: C.pageBg, fontSize: 14, color: C.textPri,
-        outline: 'none', fontFamily: 'inherit',
+        background: C.pageBg, fontSize: 16, color: C.textPri,
+        outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
+        minHeight: 44,
       }}
     />
   );
 }
 
-/* 30분 단위 시간 선택 드롭다운 */
-const TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => {
-  const h = String(Math.floor(i / 2)).padStart(2, '0');
-  const m = i % 2 === 0 ? '00' : '30';
-  return `${h}:${m}`;
+/* 1시간 단위 시간 선택 드롭다운 — 09:00부터 시작 */
+const TIME_OPTIONS: string[] = Array.from({ length: 24 }, (_, i) => {
+  const h = (i + 9) % 24;
+  return `${String(h).padStart(2, '0')}:00`;
 });
 
 function TimeSelect({
@@ -325,14 +325,21 @@ export default function TaskFormPage({
     return jobType ? s.jobTypes.includes(jobType) : false;
   });
 
+  const [imageError, setImageError] = useState('');
+
   /* ── 핸들러 ── */
   function addRefImages(files: FileList | null) {
     if (!files) return;
+    setImageError('');
     const VALID = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
     for (const file of Array.from(files)) {
       if (existingImages.length + refImages.length >= 5) break;
       if (!VALID.has(file.type) && !file.name.match(/\.(heic|heif)$/i)) continue;
-      if (file.size > 10 * 1024 * 1024) continue;
+      if (file.size > 10 * 1024 * 1024) {
+        setImageError(`"${file.name}" 파일이 10MB를 초과합니다. 10MB 이하의 이미지만 첨부할 수 있어요.`);
+        if (refInputRef.current) refInputRef.current.value = '';
+        return;
+      }
       const preview = URL.createObjectURL(file);
       setRefImages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, file, preview }]);
     }
@@ -362,6 +369,7 @@ export default function TaskFormPage({
   }
 
   function handleClickSave() {
+    if (imageError) return;
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) return;
@@ -737,6 +745,14 @@ export default function TaskFormPage({
                   JPG, PNG, WEBP, HEIC · 최대 5장 · 장당 10MB
                 </div>
               </div>
+            </div>
+          )}
+          {imageError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '10px 12px', background: 'oklch(95% 0.04 25)', border: '1px solid oklch(85% 0.06 25)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: C.danger }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {imageError}
             </div>
           )}
         </SectionCard>

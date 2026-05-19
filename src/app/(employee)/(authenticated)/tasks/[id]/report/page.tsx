@@ -24,6 +24,7 @@ interface PhotoItem {
   url: string;       // objectURL
   name: string;
   progress: number;  // 0–100
+  file?: File;       // 원본 파일 (confirm 단계에서 업로드용)
 }
 
 /* ── 섹션 타이틀 ─────────────────────────────────────────────────── */
@@ -131,7 +132,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         const url = URL.createObjectURL(file);
         setPhotos((prev) => [
           ...prev,
-          { id: `${Date.now()}-${Math.random()}`, url, name: file.name, progress: 0 },
+          { id: `${Date.now()}-${Math.random()}`, url, name: file.name, progress: 0, file },
         ]);
       }
 
@@ -161,7 +162,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     if (!btnEnabled) return;
     useReportStore.getState().setDraft({
       taskId: id,
-      photoUrls: photos.map((ph) => ph.url),
+      photoUrls:  photos.map((ph) => ph.url),
+      photoFiles: photos.map((ph) => ph.file).filter((f): f is File => !!f),
       photoCount: photos.length,
       memo,
     });

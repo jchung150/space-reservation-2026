@@ -66,11 +66,7 @@ export async function GET(req: Request) {
   }
   if (dept && DEPT_MAP[dept]) {
     const jobType = DEPT_MAP[dept];
-    tasks = tasks.filter(t => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw: string[] = (data.find(r => r.id === t.id) as any)?.staff?.job_types ?? [];
-      return raw.includes(jobType);
-    });
+    tasks = tasks.filter(t => t.taskJobType === jobType);
   }
 
   // 클라이언트 요청 시 전체 반환 (list page에서 클라이언트 페이지네이션 사용)

@@ -165,7 +165,6 @@ function AdminEditModal({ target, onClose, onSave }: {
   const [name,        setName]        = useState(target.name);
   const [phone,       setPhone]       = useState(target.phone ?? '');
   const [loginId,     setLoginId]     = useState('');
-  const [curPw,       setCurPw]       = useState('');
   const [newPw,       setNewPw]       = useState('');
   const [confirmPw,   setConfirmPw]   = useState('');
   const [err,         setErr]         = useState('');
@@ -184,13 +183,12 @@ function AdminEditModal({ target, onClose, onSave }: {
     if (!name.trim()) return setErr('이름을 입력해주세요.');
     if (newPw && newPw.length < 6) return setErr('새 비밀번호는 6자 이상이어야 합니다.');
     if (newPw && newPw !== confirmPw) return setErr('새 비밀번호가 일치하지 않습니다.');
-    if (newPw && !curPw) return setErr('현재 비밀번호를 입력해주세요.');
 
     setSaving(true);
     try {
       const body: Record<string, string> = { name: name.trim(), phone: phone.trim() };
-      if (loginId.trim()) body.loginId = loginId.trim();
-      if (newPw)          { body.currentPassword = curPw; body.newPassword = newPw; }
+      if (loginId.trim()) body.loginId   = loginId.trim();
+      if (newPw)          body.newPassword = newPw;
 
       const res = await fetch(`/api/admin/admins/${target.id}`, {
         method: 'PATCH',
@@ -208,8 +206,8 @@ function AdminEditModal({ target, onClose, onSave }: {
   }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'oklch(0% 0 0 / 45%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 440, maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px oklch(0% 0 0 / 25%)' }}>
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: 'fixed', inset: 0, background: 'oklch(0% 0 0 / 45%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
+      <div style={{ width: 440, maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px oklch(0% 0 0 / 25%)' }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.border}` }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: C.textPri }}>관리자 정보 수정</h2>
           <p style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>{target.name} 계정 정보를 수정합니다</p>
@@ -232,10 +230,6 @@ function AdminEditModal({ target, onClose, onSave }: {
               <div>
                 <label style={labelStyle}>새 아이디</label>
                 <input value={loginId} onChange={e => { setLoginId(e.target.value); setErr(''); }} style={inputStyle} placeholder="변경할 아이디 입력" autoComplete="off" />
-              </div>
-              <div>
-                <label style={labelStyle}>현재 비밀번호</label>
-                <input type="password" value={curPw} onChange={e => { setCurPw(e.target.value); setErr(''); }} style={inputStyle} placeholder="현재 비밀번호" autoComplete="current-password" />
               </div>
               <div>
                 <label style={labelStyle}>새 비밀번호</label>
@@ -416,6 +410,12 @@ export default function StaffPage() {
   const [deleteTarget,   setDeleteTarget]   = useState<DeleteTarget | null>(null);
   const [fetchingDelete, setFetchingDelete] = useState(false);
   const [deleteError,    setDeleteError]    = useState('');
+  const [toast,          setToast]          = useState('');
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  }
 
   /* ── 현재 로그인 사용자 (슈퍼어드민 여부 확인) ── */
   const { data: me } = useQuery({
@@ -428,7 +428,7 @@ export default function StaffPage() {
     queryKey: ['staff-all'],
     queryFn: () => fetch('/api/admin/staff?all=true').then(r => r.json()),
     staleTime: 0,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   /* ── 관리자 목록 ── */
@@ -436,7 +436,7 @@ export default function StaffPage() {
     queryKey: ['admin-list'],
     queryFn: () => fetch('/api/admin/admins').then(r => r.json()),
     staleTime: 0,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   /* ── 삭제 다이얼로그 열기 (업무 수 미리 조회) ── */
@@ -614,13 +614,11 @@ export default function StaffPage() {
                             ) : (
                               <button type="button" className="staff-btn staff-btn-activate" onClick={() => toggleActive.mutate({ id: s.id, isActive: true })}>활성화</button>
                             )}
-                            {isSuper && (
-                              <button type="button" className="staff-btn staff-btn-deactivate"
-                                disabled={fetchingDelete}
-                                onClick={() => openDeleteDialog(s.id, 'staff', s.name)}>
-                                {fetchingDelete ? '...' : '삭제'}
-                              </button>
-                            )}
+                            <button type="button" className="staff-btn staff-btn-deactivate"
+                              disabled={fetchingDelete}
+                              onClick={() => openDeleteDialog(s.id, 'staff', s.name)}>
+                              {fetchingDelete ? '...' : '삭제'}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -696,6 +694,7 @@ export default function StaffPage() {
           onSave={() => {
             setAdminEditTarget(null);
             queryClient.invalidateQueries({ queryKey: ['admin-list'] });
+            showToast('관리자 정보가 수정되었습니다.');
           }}
         />
       )}
@@ -706,7 +705,11 @@ export default function StaffPage() {
           mode={modal.mode}
           initial={modal.initial}
           onClose={() => setModal(null)}
-          onSave={() => { setModal(null); queryClient.invalidateQueries({ queryKey: ['staff-all'] }); }}
+          onSave={() => {
+            setModal(null);
+            queryClient.invalidateQueries({ queryKey: ['staff-all'] });
+            showToast(modal.mode === 'add' ? '직원이 등록되었습니다.' : '직원 정보가 수정되었습니다.');
+          }}
         />
       )}
 
@@ -719,6 +722,13 @@ export default function StaffPage() {
           onClose={() => { setDeleteTarget(null); setDeleteError(''); }}
           onConfirm={() => executeDeletion.mutate({ id: deleteTarget.id, type: deleteTarget.type })}
         />
+      )}
+
+      {/* 토스트 */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', background: 'oklch(18% 0.01 260)', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 500, whiteSpace: 'nowrap', boxShadow: '0 4px 16px oklch(0% 0 0 / 25%)' }}>
+          {toast}
+        </div>
       )}
     </div>
   );

@@ -66,10 +66,10 @@ export async function PATCH(
     return NextResponse.json({ error: '본인 계정만 수정할 수 있습니다.' }, { status: 403 });
   }
 
-  const { name, phone, loginId, currentPassword, newPassword } = await req.json() as {
+  const { name, phone, loginId, newPassword } = await req.json() as {
     name?: string; phone?: string;
     loginId?: string;
-    currentPassword?: string; newPassword?: string;
+    newPassword?: string;
   };
 
   if (!name?.trim()) {
@@ -95,22 +95,10 @@ export async function PATCH(
     updates.login_id = loginId.trim();
   }
 
-  // 비밀번호 변경
+  // 비밀번호 변경 (현재 비밀번호 확인 없이 바로 변경)
   if (newPassword) {
     if (newPassword.length < 6) {
       return NextResponse.json({ error: '새 비밀번호는 6자 이상이어야 합니다.' }, { status: 400 });
-    }
-    if (!currentPassword) {
-      return NextResponse.json({ error: '현재 비밀번호를 입력해주세요.' }, { status: 400 });
-    }
-    const { data: admin } = await supabaseAdmin
-      .from('admins')
-      .select('password_hash')
-      .eq('id', id)
-      .single();
-    const isValid = admin && await bcrypt.compare(currentPassword, admin.password_hash);
-    if (!isValid) {
-      return NextResponse.json({ error: '현재 비밀번호가 올바르지 않습니다.' }, { status: 401 });
     }
     updates.password_hash = await bcrypt.hash(newPassword, 10);
   }

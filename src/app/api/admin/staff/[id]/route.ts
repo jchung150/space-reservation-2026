@@ -82,44 +82,56 @@ export async function DELETE(
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
 
-  if (session.adminRole !== 'super') {
-    return NextResponse.json(
-      { error: '슈퍼 관리자만 직원을 삭제할 수 있습니다.' },
-      { status: 403 },
-    );
-  }
 
   const { id } = await params;
 
-  // 1. 이 직원에게 배정된 업무 ID 목록 조회
+  // 1. 미아카이브 업무 ID 목록만 조회 (아카이브 업무는 보존)
   const { data: tasks, error: fetchErr } = await supabaseAdmin
     .from('tasks')
     .select('id')
-    .eq('assignee_id', id);
+    .eq('assignee_id', id)
+    .eq('is_archived', false);
 
   if (fetchErr) {
     return NextResponse.json({ error: '업무 조회 실패: ' + fetchErr.message }, { status: 500 });
   }
 
-  // 2. 각 업무의 보고(reports) 삭제
   if (tasks && tasks.length > 0) {
     const taskIds = tasks.map(t => t.id);
 
-    const { error: rErr } = await supabaseAdmin
+    // 2. 보고 ID 조회
+    const { data: reports } = await supabaseAdmin
       .from('reports')
-      .delete()
+      .select('id')
       .in('task_id', taskIds);
 
-    if (rErr) {
-      return NextResponse.json({ error: '보고 삭제 실패: ' + rErr.message }, { status: 500 });
+    // 3. 보고 사진 삭제
+    if (reports && reports.length > 0) {
+      const reportIds = reports.map(r => r.id);
+
+      const { data: photos } = await supabaseAdmin
+        .from('report_photos')
+        .select('storage_path')
+        .in('report_id', reportIds);
+
+      if (photos && photos.length > 0) {
+        const paths = photos.map((p: { storage_path: string }) => p.storage_path);
+        await supabaseAdmin.storage.from('report-photos').remove(paths);
+      }
+
+      await supabaseAdmin.from('report_photos').delete().in('report_id', reportIds);
+
+      // 4. 보고 삭제
+      const { error: rErr } = await supabaseAdmin
+        .from('reports').delete().in('task_id', taskIds);
+      if (rErr) {
+        return NextResponse.json({ error: '보고 삭제 실패: ' + rErr.message }, { status: 500 });
+      }
     }
 
-    // 3. 업무 삭제
+    // 5. 미아카이브 업무만 삭제 (아카이브 업무는 보존)
     const { error: tErr } = await supabaseAdmin
-      .from('tasks')
-      .delete()
-      .eq('assignee_id', id);
-
+      .from('tasks').delete().eq('assignee_id', id).eq('is_archived', false);
     if (tErr) {
       return NextResponse.json({ error: '업무 삭제 실패: ' + tErr.message }, { status: 500 });
     }

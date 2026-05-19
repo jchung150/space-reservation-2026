@@ -26,6 +26,7 @@ const DEPT_COLOR: Record<string, string> = {
 /* ── API 응답 타입 ────────────────────────────────────────────── */
 interface ReportItem {
   id:           string;
+  taskId:       string | null;
   status:       'pending' | 'approved';
   timeAgo:      string;
   createdAt:    string;
@@ -87,6 +88,10 @@ function ReportCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={onReview}
+      onKeyDown={e => e.key === 'Enter' && onReview()}
       className={report.isNew ? 'slide-down' : ''}
       style={{
         background: '#fff', borderRadius: 12, position: 'relative',
@@ -95,6 +100,7 @@ function ReportCard({
           ? '0 0 0 2px oklch(85% 0.08 195), 0 4px 16px oklch(55% 0.14 195 / 12%)'
           : '0 1px 4px oklch(0% 0 0 / 5%)',
         padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16,
+        cursor: 'pointer', transition: '150ms ease',
       }}
     >
       {/* NEW 배지 */}
@@ -143,12 +149,12 @@ function ReportCard({
         </div>
       </div>
 
-      {/* 액션 버튼: pending=검토하기, approved=저장하기+승인취소 */}
+      {/* 액션 버튼: approved=저장하기+승인취소 */}
       {report.status === 'approved' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
           <button
             type="button"
-            onClick={onArchive}
+            onClick={e => { e.stopPropagation(); onArchive(); }}
             disabled={archiving || undoing}
             onMouseEnter={() => setHov(true)}
             onMouseLeave={() => setHov(false)}
@@ -166,7 +172,7 @@ function ReportCard({
           </button>
           <button
             type="button"
-            onClick={onUndoApprove}
+            onClick={e => { e.stopPropagation(); onUndoApprove(); }}
             disabled={archiving || undoing}
             style={{
               padding: '7px 20px', borderRadius: 8,
@@ -184,7 +190,7 @@ function ReportCard({
       ) : (
         <button
           type="button"
-          onClick={onReview}
+          onClick={e => { e.stopPropagation(); onReview(); }}
           onMouseEnter={() => setHov(true)}
           onMouseLeave={() => setHov(false)}
           style={{
@@ -316,7 +322,7 @@ export default function ReportsPage() {
           <ReportCard
             key={report.id}
             report={report}
-            onReview={() => router.push(`/admin/reports/${report.id}`)}
+            onReview={() => router.push(`/admin/tasks/${report.taskId}`)}
             onArchive={() => archiveMutation.mutate(report.id)}
             onUndoApprove={() => undoApproveMutation.mutate(report.id)}
             archiving={archivingId === report.id}
