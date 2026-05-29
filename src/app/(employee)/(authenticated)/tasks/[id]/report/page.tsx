@@ -185,6 +185,19 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       {/* 헤더 */}
       <DetailHeader title="검토 요청" />
 
+      {/* 재작업 안내 배너 */}
+      {task?.status === 'rework' && (
+        <div style={{ padding: '10px 16px', background: 'oklch(96% 0.05 85)', borderBottom: '1px solid oklch(88% 0.08 85)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(65% 0.16 65)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span style={{ fontSize: 13, color: 'oklch(45% 0.12 65)', lineHeight: 1.5 }}>
+            새로 검토 요청을 하면 이전에 제출한 사진과 메모가 삭제되고 새로 작성한 내용으로 대체됩니다.
+          </span>
+        </div>
+      )}
+
       {/* 업무 요약 바 */}
       {task && p && (
         <div

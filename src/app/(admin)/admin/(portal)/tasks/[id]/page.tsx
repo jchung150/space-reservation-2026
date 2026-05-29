@@ -77,11 +77,12 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
   });
 
   const queryClient = useQueryClient();
-  const [lightbox,   setLightbox]   = useState<{ images: string[]; index: number } | null>(null);
-  const [rejectNote, setRejectNote] = useState('');
-  const [showReject, setShowReject] = useState(false);
-  const [reviewErr,  setReviewErr]  = useState('');
-  const [toast,      setToast]      = useState('');
+  const [lightbox,     setLightbox]     = useState<{ images: string[]; index: number } | null>(null);
+  const [rejectNote,   setRejectNote]   = useState('');
+  const [showReject,   setShowReject]   = useState(false);
+  const [reviewErr,    setReviewErr]    = useState('');
+  const [toast,        setToast]        = useState('');
+  const [showHistory,  setShowHistory]  = useState(false);
 
   const approveMutation = useMutation({
     mutationFn: (reportId: string) =>
@@ -144,9 +145,14 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
   const submittedPhotos: string[] = task.submittedPhotos ?? [];
 
   // 가장 최근 보고
-  const latestReport = reports[0] ?? null;
-  const isPending    = latestReport?.status === 'pending';
-  const isApproved   = latestReport?.status === 'approved';
+  const latestReport   = reports[0] ?? null;
+  const isPending      = latestReport?.status === 'pending';
+  const isApproved     = latestReport?.status === 'approved';
+  // 반려된 보고 수 (= 이전 이력 수)
+  const rejectionCount = reports.filter((r: any) => r.status === 'rejected').length;
+  const canReject      = rejectionCount < 2;
+  // 이력: 최신 제출 제외한 나머지 (오래된 순)
+  const historyReports: any[] = reports.slice(1).reverse();
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
@@ -180,7 +186,7 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
 
           {/* 기본 정보 */}
           <Card title="기본 정보">
-            <InfoRow label="담당 직원">{task.employeeName || '—'}</InfoRow>
+            <InfoRow label="담당자">{task.employeeName || '—'}</InfoRow>
             <InfoRow label="직군">{task.dept || '—'}</InfoRow>
             <InfoRow label="마감일시">
               <span style={{ color: new Date(task.deadline) < new Date() && task.status !== 'done' ? C.danger : C.textPri }}>
@@ -247,7 +253,7 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
             {latestReport && (
               <>
                 {/* 완료 보고 카드 */}
-                <Card title="완료 보고">
+                <Card title={`완료 보고 ${reports.length > 1 ? `(${reports.length}차 제출)` : ''}`}>
                   <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
                     {latestReport.submittedBy} · {latestReport.timeAgo}
                   </div>
@@ -255,10 +261,60 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
                     ? <p style={{ fontSize: 14, color: C.textPri, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>{latestReport.memo}</p>
                     : <p style={{ fontSize: 13, color: C.textMuted, margin: 0 }}>메모 없음</p>
                   }
-                  {reports.length > 1 && (
-                    <div style={{ marginTop: 12, fontSize: 12, color: C.textMuted }}>이전 보고 {reports.length - 1}건 더 있음</div>
-                  )}
                 </Card>
+
+                {/* 이전 제출 이력 아코디언 */}
+                {historyReports.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 16 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowHistory(v => !v)}
+                      style={{ width: '100%', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: C.pageBg, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.textSec, letterSpacing: '0.04em' }}>
+                        이전 제출 이력 ({historyReports.length}건)
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: showHistory ? 'rotate(180deg)' : 'none', transition: '200ms ease' }}>
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+                    {showHistory && (
+                      <div style={{ padding: '4px 0' }}>
+                        {historyReports.map((r: any, i: number) => (
+                          <div key={r.id} style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.danger, background: C.dangerBg, borderRadius: 6, padding: '2px 8px' }}>
+                                {i + 1}차 제출 · 반려됨
+                              </span>
+                              <span style={{ fontSize: 11, color: C.textMuted }}>{r.timeAgo}</span>
+                            </div>
+                            {r.memo && (
+                              <p style={{ fontSize: 13, color: C.textPri, margin: '0 0 8px', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{r.memo}</p>
+                            )}
+                            {r.photos?.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                                {r.photos.map((url: string, pi: number) => (
+                                  <button key={pi} type="button"
+                                    onClick={() => setLightbox({ images: r.photos, index: pi })}
+                                    style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.border}`, cursor: 'pointer', padding: 0, flexShrink: 0 }}>
+                                    <img src={url} alt={`${i + 1}차 제출 사진 ${pi + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {r.rejectReason && (
+                              <div style={{ background: C.dangerBg, borderRadius: 8, padding: '8px 12px', border: `1px solid oklch(88% 0.06 25)` }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, marginBottom: 3, letterSpacing: '0.04em' }}>반려 사유</div>
+                                <div style={{ fontSize: 12, color: C.danger, lineHeight: 1.6 }}>{r.rejectReason}</div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* 제출 사진 카드 */}
                 {submittedPhotos.length > 0 && (
@@ -286,19 +342,28 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
 
               {/* 검토 대기 — 승인/반려 */}
               {isPending && !showReject && (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button type="button"
-                    onClick={() => { setReviewErr(''); approveMutation.mutate(latestReport.id); }}
-                    disabled={approveMutation.isPending}
-                    style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {approveMutation.isPending ? '처리 중...' : '승인'}
-                  </button>
-                  <button type="button"
-                    onClick={() => { setShowReject(true); setReviewErr(''); }}
-                    style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textSec, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    반려
-                  </button>
-                </div>
+                <>
+                  {!canReject && (
+                    <div style={{ padding: '8px 12px', background: 'oklch(94% 0.04 280)', border: '1px solid oklch(80% 0.08 280)', borderRadius: 8, fontSize: 12, color: 'oklch(50% 0.12 280)', fontWeight: 600, marginBottom: 4 }}>
+                      반려 2회 초과로 이 제출은 승인만 가능합니다.
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button"
+                      onClick={() => { setReviewErr(''); approveMutation.mutate(latestReport.id); }}
+                      disabled={approveMutation.isPending}
+                      style={{ flex: canReject ? 2 : 1, padding: '12px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {approveMutation.isPending ? '처리 중...' : '승인'}
+                    </button>
+                    {canReject && (
+                      <button type="button"
+                        onClick={() => { setShowReject(true); setReviewErr(''); }}
+                        style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textSec, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        반려
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
 
               {/* 반려 사유 입력 */}

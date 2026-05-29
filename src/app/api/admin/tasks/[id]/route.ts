@@ -42,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     supabaseAdmin
       .from('reports')
-      .select('id, status, memo, created_at, reviewed_at, staff:submitted_by_id(name), admins:reviewed_by_id(name), report_photos(storage_path, sort_order)')
+      .select('id, status, memo, reject_reason, created_at, reviewed_at, staff:submitted_by_id(name), admins:reviewed_by_id(name), report_photos(storage_path, sort_order)')
       .eq('task_id', id)
       .order('created_at', { ascending: false }),
   ]);
@@ -51,15 +51,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: '업무를 찾을 수 없습니다.' }, { status: 404 });
   }
 
+  // 모든 보고의 사진 서명 URL 변환 (이력 포함)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reports = (reportsRes.data ?? []).map((r: any) => ({
-    id:           r.id,
-    status:       r.status,
-    memo:         r.memo,
-    submittedBy:  r.staff?.name ?? '—',
-    reviewedBy:   r.admins?.name ?? null,
-    timeAgo:      timeAgo(r.created_at),
-    reviewedAt:   r.reviewed_at,
+  const reports = await Promise.all((reportsRes.data ?? []).map(async (r: any) => {
+    const sortedPhotos = [...(r.report_photos ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const photoUrls = await Promise.all(
+      sortedPhotos.map(async (p: any) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from('report-photos')
+          .createSignedUrl(p.storage_path, 3600);
+        return signed?.signedUrl ?? null;
+      })
+    );
+    return {
+      id:           r.id,
+      status:       r.status,
+      memo:         r.memo,
+      rejectReason: r.reject_reason ?? null,
+      submittedBy:  r.staff?.name ?? '—',
+      reviewedBy:   r.admins?.name ?? null,
+      timeAgo:      timeAgo(r.created_at),
+      reviewedAt:   r.reviewed_at,
+      photos:       photoUrls.filter(Boolean) as string[],
+    };
   }));
 
   // reference_images 서명 URL 변환
@@ -75,21 +89,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       )).filter(Boolean) as string[]
     : [];
 
-  // 가장 최근 보고의 사진 서명 URL 변환
-  const latestReport = (reportsRes.data ?? [])[0] as any;
-  const submittedPhotos: string[] = [];
-  if (latestReport?.report_photos?.length > 0) {
-    const sorted = [...latestReport.report_photos].sort((a: any, b: any) => a.sort_order - b.sort_order);
-    const urls = await Promise.all(
-      sorted.map(async (p: any) => {
-        const { data: signed } = await supabaseAdmin.storage
-          .from('report-photos')
-          .createSignedUrl(p.storage_path, 3600);
-        return signed?.signedUrl ?? null;
-      })
-    );
-    submittedPhotos.push(...(urls.filter(Boolean) as string[]));
-  }
+  // 최신 보고의 사진 (기존 UI 호환)
+  const submittedPhotos: string[] = reports[0]?.photos ?? [];
 
   return NextResponse.json({
     ...mapAdminTask(taskRes.data),

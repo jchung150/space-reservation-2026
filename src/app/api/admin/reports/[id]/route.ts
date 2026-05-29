@@ -59,21 +59,27 @@ export async function GET(
     ? (DEPT_MAP[taskJobType] ?? '—')
     : (jobTypes.map((jt: string) => DEPT_MAP[jt] ?? jt)[0] ?? '—');
 
-  return NextResponse.json({
-    id:             r.id,
-    status:         r.status,
-    memo:           r.memo,
-    rejectReason:   r.reject_reason ?? null,
-    submittedAt:    fmt(r.created_at),
-    employee:       r.staff?.name ?? '—',
-    dept,
-    task:           r.task?.title       ?? '—',
-    priority:       r.task?.priority    ?? 'medium',
-    taskDescription: r.task?.description ?? '',
-    taskDue:        fmt(r.task?.deadline ?? null),
-    taskAssignedAt: fmtDate(r.task?.created_at ?? null),
-    assignedByName: r.task?.admins?.name ?? '—',
-    photos: await Promise.all(
+  const taskId: string = r.task?.id ?? '';
+
+  // 같은 업무의 이전 반려 이력 조회 (현재 보고 제외)
+  const { data: prevReportsRaw } = await supabaseAdmin
+    .from('reports')
+    .select('id, memo, reject_reason, created_at, reviewed_at')
+    .eq('task_id', taskId)
+    .eq('status', 'rejected')
+    .neq('id', id)
+    .order('created_at', { ascending: true });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const previousRejections = (prevReportsRaw ?? []).map((pr: any) => ({
+    memo:        pr.memo,
+    rejectReason: pr.reject_reason ?? '',
+    submittedAt: fmt(pr.created_at),
+    rejectedAt:  fmt(pr.reviewed_at),
+  }));
+
+  const [photos, referenceImages] = await Promise.all([
+    Promise.all(
       (r.photos ?? [])
         .sort((a: any, b: any) => a.sort_order - b.sort_order)
         .map(async (p: any) => {
@@ -88,7 +94,7 @@ export async function GET(
           };
         })
     ),
-    referenceImages: await Promise.all(
+    Promise.all(
       ((r.task?.reference_images ?? []) as string[]).map(async (path: string) => {
         const { data: signed } = await supabaseAdmin.storage
           .from('task-references')
@@ -96,6 +102,26 @@ export async function GET(
         return signed?.signedUrl ?? null;
       })
     ).then(urls => urls.filter(Boolean) as string[]),
+  ]);
+
+  return NextResponse.json({
+    id:             r.id,
+    status:         r.status,
+    memo:           r.memo,
+    rejectReason:   r.reject_reason ?? null,
+    submittedAt:    fmt(r.created_at),
+    employee:       r.staff?.name ?? '—',
+    dept,
+    task:           r.task?.title       ?? '—',
+    priority:       r.task?.priority    ?? 'medium',
+    taskDescription: r.task?.description ?? '',
+    taskDue:        fmt(r.task?.deadline ?? null),
+    taskAssignedAt: fmtDate(r.task?.created_at ?? null),
+    assignedByName: r.task?.admins?.name ?? '—',
+    rejectionCount:     previousRejections.length,
+    previousRejections,
+    photos,
+    referenceImages,
   });
 }
 
@@ -120,6 +146,27 @@ export async function PATCH(
   }
   if (action === 'reject' && !rejectReason?.trim()) {
     return NextResponse.json({ error: '반려 사유를 입력해주세요.' }, { status: 400 });
+  }
+
+  // 반려 횟수 제한: 동일 업무에서 최대 2회
+  if (action === 'reject') {
+    const { data: currentReport } = await supabaseAdmin
+      .from('reports')
+      .select('task_id')
+      .eq('id', id)
+      .single();
+
+    if (currentReport) {
+      const { count } = await supabaseAdmin
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('task_id', currentReport.task_id)
+        .eq('status', 'rejected');
+
+      if ((count ?? 0) >= 2) {
+        return NextResponse.json({ error: '반려는 최대 2회까지만 가능합니다. 이 보고는 승인만 할 수 있습니다.' }, { status: 400 });
+      }
+    }
   }
 
   // 승인 취소: 보고 → pending, 업무 → pending_review

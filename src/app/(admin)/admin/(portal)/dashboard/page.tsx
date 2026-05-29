@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { PRIORITY_CONFIG } from '@/constants/task-config';
 
@@ -21,33 +21,62 @@ const DEPT_COLOR: Record<string, string> = {
 };
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  todo:           { label: '미완료',    color: C.textSec,  bg: C.pageBg    },
-  in_progress:    { label: '진행 중',   color: C.primary,  bg: C.primaryBg },
-  pending_review: { label: '검토 대기', color: 'oklch(58% 0.14 280)', bg: 'oklch(94% 0.04 280)' },
-  done:           { label: '완료',      color: C.success,  bg: C.successBg },
-  rework:         { label: '재작업',    color: C.danger,   bg: C.dangerBg  },
+  todo:           { label: '미완료',    color: C.textSec,                    bg: C.pageBg    },
+  in_progress:    { label: '진행 중',   color: C.primary,                    bg: C.primaryBg },
+  pending_review: { label: '검토 대기', color: 'oklch(58% 0.14 280)',        bg: 'oklch(94% 0.04 280)' },
+  done:           { label: '완료',      color: C.success,                    bg: C.successBg },
+  rework:         { label: '재작업',    color: C.danger,                     bg: C.dangerBg  },
 };
 
+type FilterKey = 'total' | 'todo' | 'pending_review' | 'done';
+
+const FILTER_CFG: Record<FilterKey, { label: string; color: string; sub: string }> = {
+  total:          { label: '전체 업무', color: C.textPri, sub: '아카이브 업무 미포함' },
+  todo:           { label: '미완료',    color: C.warning,  sub: '재작업 포함' },
+  pending_review: { label: '검토 대기', color: C.primary,  sub: '즉시 검토 필요' },
+  done:           { label: '완료',      color: C.success,  sub: '승인 완료' },
+};
 
 /* ── KPI 카드 ─────────────────────────────────────────────────── */
-function KpiCard({ label, value, color, sub, highlight = false }: {
-  label: string; value: number; color: string; sub?: string; highlight?: boolean;
+function KpiCard({
+  label, value, color, sub, active, onClick,
+}: {
+  label: string; value: number; color: string; sub?: string;
+  active: boolean; onClick: () => void;
 }) {
+  const [hov, setHov] = useState(false);
   return (
-    <div style={{ flex: 1, background: highlight ? color : '#fff', borderRadius: 12, padding: '20px 22px', border: highlight ? 'none' : `1px solid ${C.border}`, boxShadow: highlight ? `0 4px 20px ${color}40` : '0 1px 4px oklch(0% 0 0 / 5%)', position: 'relative', overflow: 'hidden', minWidth: 0 }}>
-      {highlight && <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />}
-      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', marginBottom: 8, color: highlight ? 'rgba(255,255,255,0.8)' : C.textMuted }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, marginBottom: 6, color: highlight ? '#fff' : color }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: highlight ? 'rgba(255,255,255,0.65)' : C.textMuted }}>{sub}</div>}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        flex: 1, background: active ? color : '#fff', borderRadius: 12,
+        padding: '20px 22px', minWidth: 0, textAlign: 'left', fontFamily: 'inherit',
+        border: active ? 'none' : `1.5px solid ${hov ? color : C.border}`,
+        boxShadow: active
+          ? `0 4px 20px ${color}40`
+          : hov ? `0 2px 10px ${color}20` : '0 1px 4px oklch(0% 0 0 / 5%)',
+        cursor: 'pointer', transition: '150ms ease', position: 'relative', overflow: 'hidden',
+      }}
+    >
+      {active && (
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+      )}
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.03em', marginBottom: 8, color: active ? 'rgba(255,255,255,0.8)' : C.textMuted }}>{label}</div>
+      <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, marginBottom: 6, color: active ? '#fff' : color }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: active ? 'rgba(255,255,255,0.65)' : C.textMuted }}>{sub}</div>}
+    </button>
   );
 }
 
 /* ── 메인 페이지 ─────────────────────────────────────────────── */
 export default function DashboardPage() {
-  const [dateLabel, setDateLabel]         = useState('');
-  const [hoveredRow, setHoveredRow]       = useState<string | null>(null);
-  const [hoveredReport, setHoveredReport] = useState<string | null>(null);
+  const router = useRouter();
+  const [dateLabel, setDateLabel] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('total');
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   /* 현재 일시 */
   useEffect(() => {
@@ -72,15 +101,30 @@ export default function DashboardPage() {
     refetchOnWindowFocus: true,
   });
 
-  const kpi            = data?.kpi            ?? { total: 0, todo: 0, pendingReview: 0, done: 0 };
+  const kpi = data?.kpi ?? { total: 0, todo: 0, pendingReview: 0, done: 0 };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allTodayTasks:  any[] = data?.todayTasks   ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const overdueTasks:   any[] = data?.overdueTasks  ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recentReports:  any[] = data?.recentReports ?? [];
+  const allTasks: any[] = data?.tasks ?? [];
 
-  const filteredTasks = allTodayTasks;
+  /* 선택된 필터에 따라 최대 10건 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filteredTasks: any[] = (() => {
+    let list = allTasks;
+    if (activeFilter === 'todo')           list = allTasks.filter(t => ['todo', 'rework'].includes(t.status));
+    if (activeFilter === 'pending_review') list = allTasks.filter(t => t.status === 'pending_review');
+    if (activeFilter === 'done')           list = allTasks.filter(t => t.status === 'done');
+    return list.slice(0, 10);
+  })();
+
+  const handleCardClick = (key: FilterKey) => {
+    setActiveFilter(key);
+  };
+
+  const kpiValues: Record<FilterKey, number> = {
+    total:          kpi.total,
+    todo:           kpi.todo,
+    pending_review: kpi.pendingReview,
+    done:           kpi.done,
+  };
 
   return (
     <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', minWidth: 0 }}>
@@ -102,165 +146,88 @@ export default function DashboardPage() {
         <>
           {/* KPI 카드 */}
           <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
-            <KpiCard label="전체 업무" value={kpi.total}         color={C.textPri} sub="아카이브 업무 미포함" />
-            <KpiCard label="미완료"    value={kpi.todo}          color={C.warning} sub="재작업 포함" />
-            <KpiCard label="검토 대기" value={kpi.pendingReview} color={C.primary} sub="즉시 검토 필요" />
-            <KpiCard label="완료"      value={kpi.done}          color={C.success} sub="승인 완료" />
+            {(Object.keys(FILTER_CFG) as FilterKey[]).map(key => (
+              <KpiCard
+                key={key}
+                label={FILTER_CFG[key].label}
+                value={kpiValues[key]}
+                color={FILTER_CFG[key].color}
+                sub={FILTER_CFG[key].sub}
+                active={activeFilter === key}
+                onClick={() => handleCardClick(key)}
+              />
+            ))}
           </div>
 
-          {/* 이번 주 마감 업무 */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 20 }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>이번 주 마감 업무</span>
-              <span style={{ fontSize: 12, color: C.textMuted }}>{filteredTasks.length}건</span>
-            </div>
-            {filteredTasks.length === 0 ? (
-              <div style={{ padding: '32px 20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>이번 주 마감 업무가 없습니다</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: 'auto' }} />
-                  <col style={{ width: 130 }} />
-                  <col style={{ width: 110 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 100 }} />
-                </colgroup>
-                <thead>
-                  <tr style={{ background: C.pageBg }}>
-                    {['업무명', '담당자', '마감일시', '우선순위', '상태'].map(h => (
-                      <th key={h} style={{ padding: '9px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textAlign: 'left', letterSpacing: '0.03em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTasks.map((t: any) => {
-                    const p = PRIORITY_CONFIG[t.priority as 'high' | 'medium' | 'low'] ?? PRIORITY_CONFIG.medium;
-                    const s = STATUS_CFG[t.status] ?? STATUS_CFG.todo;
-                    const deptClr = DEPT_COLOR[t.dept?.split('·')[0]] ?? C.textMuted;
-                    const d = new Date(t.deadline);
-                    const deadlineStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-                    return (
-                      <tr key={t.id}
-                        onMouseEnter={e => { setHoveredRow(t.id); e.currentTarget.style.background = C.pageBg; }}
-                        onMouseLeave={e => { setHoveredRow(null); e.currentTarget.style.background = 'transparent'; }}
-                        style={{ borderTop: `1px solid ${C.border}`, transition: '120ms' }}>
-                        <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.textPri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: deptClr, display: 'inline-block', flexShrink: 0 }} />
-                            {t.employeeName}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{deadlineStr}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '3px 8px' }}>{p.label}</span>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: s.color, background: s.bg, borderRadius: 6, padding: '3px 8px' }}>{s.label}</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* 마감 기한 초과 업무 */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 20 }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>마감 기한 초과</span>
-              <span style={{ fontSize: 12, color: overdueTasks.length > 0 ? C.danger : C.textMuted, fontWeight: overdueTasks.length > 0 ? 700 : 400 }}>
-                {overdueTasks.length}건
-              </span>
-            </div>
-            {overdueTasks.length === 0 ? (
-              <div style={{ padding: '32px 20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>초과된 업무가 없습니다</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: 'auto' }} />
-                  <col style={{ width: 130 }} />
-                  <col style={{ width: 110 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 100 }} />
-                </colgroup>
-                <thead>
-                  <tr style={{ background: C.pageBg }}>
-                    {['업무명', '담당자', '마감일시', '우선순위', '상태'].map(h => (
-                      <th key={h} style={{ padding: '9px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textAlign: 'left', letterSpacing: '0.03em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {overdueTasks.map((t: any) => {
-                    const p = PRIORITY_CONFIG[t.priority as 'high' | 'medium' | 'low'] ?? PRIORITY_CONFIG.medium;
-                    const s = STATUS_CFG[t.status] ?? STATUS_CFG.todo;
-                    const d = new Date(t.deadline);
-                    const deptClr = DEPT_COLOR[t.dept?.split('·')[0]] ?? C.textMuted;
-                    const deadlineStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-                    return (
-                      <tr key={t.id}
-                        onMouseEnter={e => { setHoveredRow(t.id); e.currentTarget.style.background = C.pageBg; }}
-                        onMouseLeave={e => { setHoveredRow(null); e.currentTarget.style.background = 'transparent'; }}
-                        style={{ borderTop: `1px solid ${C.border}`, transition: '120ms' }}>
-                        <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.textPri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: deptClr, display: 'inline-block', flexShrink: 0 }} />
-                            {t.employeeName}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.danger }}>{deadlineStr}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '3px 8px' }}>{p.label}</span>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: s.color, background: s.bg, borderRadius: 6, padding: '3px 8px' }}>{s.label}</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* 검토 대기 보고 */}
+          {/* 필터된 업무 목록 */}
           <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>검토 대기 보고</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'oklch(20% 0.04 160 / 10%)', border: '1px solid oklch(62% 0.15 160 / 30%)', borderRadius: 6, padding: '3px 10px' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.success, display: 'inline-block', animation: 'pulse 1.5s ease infinite' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.success, letterSpacing: '0.06em' }}>LIVE</span>
+              <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>
+                  {FILTER_CFG[activeFilter].label}
+                </span>
+                <span style={{ fontSize: 12, color: C.textMuted }}>
+                  {filteredTasks.length}건 표시
+                  {kpiValues[activeFilter] > 10 && ` (전체 ${kpiValues[activeFilter]}건 중)`}
+                </span>
               </div>
-            </div>
-            {recentReports.length === 0 ? (
-              <div style={{ padding: '32px 20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>제출된 보고가 없습니다</div>
-            ) : (
-              recentReports.map((r: any, i: number) => {
-                const deptClr = DEPT_COLOR[r.dept?.split('·')[0]] ?? C.primary;
-                const isHov   = hoveredReport === r.id;
-                return (
-                  <div key={r.id}
-                    onMouseEnter={() => setHoveredReport(r.id)}
-                    onMouseLeave={() => setHoveredReport(null)}
-                    style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderTop: i > 0 ? `1px solid ${C.border}` : 'none', gap: 14, background: isHov ? C.pageBg : 'transparent', transition: '120ms' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${deptClr}18`, border: `1.5px solid ${deptClr}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: deptClr, flexShrink: 0 }}>
-                      {r.employee[0]}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 3 }}>{r.task}</div>
-                      <div style={{ fontSize: 12, color: C.textMuted }}>{r.employee} · {r.timeAgo}</div>
-                    </div>
-                    <Link href={`/admin/reports/${r.id}`}
-                      style={{ padding: '7px 16px', borderRadius: 8, border: `1.5px solid ${C.primary}`, background: isHov ? C.primaryBg : 'transparent', color: C.primary, fontSize: 12, fontWeight: 700, textDecoration: 'none', flexShrink: 0, transition: '150ms ease' }}>
-                      검토하기
-                    </Link>
-                  </div>
-                );
-              })
-            )}
+
+              {filteredTasks.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>
+                  해당 업무가 없습니다
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: 'auto' }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 90 }} />
+                    <col style={{ width: 100 }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: C.pageBg }}>
+                      {['업무명', '담당자', '마감일시', '우선순위', '상태'].map(h => (
+                        <th key={h} style={{ padding: '9px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textAlign: 'left', letterSpacing: '0.03em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {filteredTasks.map((t: any) => {
+                      const p = PRIORITY_CONFIG[t.priority as 'high' | 'medium' | 'low'] ?? PRIORITY_CONFIG.medium;
+                      const s = STATUS_CFG[t.status] ?? STATUS_CFG.todo;
+                      const deptClr = DEPT_COLOR[t.dept] ?? C.textMuted;
+                      const d = new Date(t.deadline);
+                      const deadlineStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                      const isHov = hoveredRow === t.id;
+                      return (
+                        <tr
+                          key={t.id}
+                          onClick={() => router.push(`/admin/tasks/${t.id}`)}
+                          onMouseEnter={() => setHoveredRow(t.id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          style={{ borderTop: `1px solid ${C.border}`, background: isHov ? C.pageBg : 'transparent', transition: '120ms', cursor: 'pointer' }}
+                        >
+                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.textPri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: deptClr, display: 'inline-block', flexShrink: 0 }} />
+                              {t.employeeName}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{deadlineStr}</td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '3px 8px' }}>{p.label}</span>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: s.color, background: s.bg, borderRadius: 6, padding: '3px 8px' }}>{s.label}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
           </div>
         </>
       )}

@@ -70,14 +70,12 @@ const IconEmpty = () => (
 
 /* ── 보고 카드 ──────────────────────────────────────────────────── */
 function ReportCard({
-  report, onReview, onArchive, onUndoApprove, archiving, undoing,
+  report, onReview, onArchive, archiving,
 }: {
   report: ReportItem;
   onReview: () => void;
   onArchive: () => void;
-  onUndoApprove: () => void;
   archiving: boolean;
-  undoing: boolean;
 }) {
   const p        = PRIORITY_CONFIG[report.priority];
   const deptClr  = Object.entries(DEPT_COLOR).find(([k]) => report.dept.includes(k))?.[1] ?? C.textMuted;
@@ -151,42 +149,24 @@ function ReportCard({
 
       {/* 액션 버튼: approved=저장하기+승인취소 */}
       {report.status === 'approved' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); onArchive(); }}
-            disabled={archiving || undoing}
-            onMouseEnter={() => setHov(true)}
-            onMouseLeave={() => setHov(false)}
-            style={{
-              padding: '9px 20px', borderRadius: 8,
-              border: `1.5px solid ${C.success}`,
-              background: hov ? C.successBg : 'transparent',
-              color: C.success, fontSize: 13, fontWeight: 700,
-              cursor: archiving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', transition: '150ms ease', whiteSpace: 'nowrap',
-              opacity: archiving || undoing ? 0.6 : 1,
-            }}
-          >
-            {archiving ? '저장 중...' : '저장하기 →'}
-          </button>
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); onUndoApprove(); }}
-            disabled={archiving || undoing}
-            style={{
-              padding: '7px 20px', borderRadius: 8,
-              border: `1.5px solid ${C.border}`,
-              background: 'transparent',
-              color: C.textMuted, fontSize: 12, fontWeight: 600,
-              cursor: undoing ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', transition: '150ms ease', whiteSpace: 'nowrap',
-              opacity: archiving || undoing ? 0.6 : 1,
-            }}
-          >
-            {undoing ? '취소 중...' : '승인 취소'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onArchive(); }}
+          disabled={archiving}
+          onMouseEnter={() => setHov(true)}
+          onMouseLeave={() => setHov(false)}
+          style={{
+            padding: '9px 20px', borderRadius: 8, flexShrink: 0,
+            border: `1.5px solid ${C.success}`,
+            background: hov ? C.successBg : 'transparent',
+            color: C.success, fontSize: 13, fontWeight: 700,
+            cursor: archiving ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', transition: '150ms ease', whiteSpace: 'nowrap',
+            opacity: archiving ? 0.6 : 1,
+          }}
+        >
+          {archiving ? '저장 중...' : '저장하기 →'}
+        </button>
       ) : (
         <button
           type="button"
@@ -225,7 +205,6 @@ export default function ReportsPage() {
   const queryClient = useQueryClient();
   const [tab,           setTab]          = useState<TabKey>('pending');
   const [archivingId,   setArchivingId]  = useState<string | null>(null);
-  const [undoingId,     setUndoingId]    = useState<string | null>(null);
 
   const archiveMutation = useMutation({
     mutationFn: (reportId: string) =>
@@ -240,17 +219,6 @@ export default function ReportsPage() {
     },
   });
 
-  const undoApproveMutation = useMutation({
-    mutationFn: (reportId: string) =>
-      fetch(`/api/admin/reports/${reportId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'undo_approve' }),
-      }).then(r => { if (!r.ok) throw new Error('승인 취소 실패'); }),
-    onMutate:  (id) => setUndoingId(id),
-    onSettled: ()   => setUndoingId(null),
-    onSuccess: ()   => queryClient.invalidateQueries({ queryKey: ['admin-reports'] }),
-  });
 
   /* 실제 DB에서 보고 목록 조회 — SSE 대신 30초 폴링 */
   const { data: reports = [], isLoading, isError } = useQuery<ReportItem[]>({
@@ -324,9 +292,7 @@ export default function ReportsPage() {
             report={report}
             onReview={() => router.push(`/admin/tasks/${report.taskId}`)}
             onArchive={() => archiveMutation.mutate(report.id)}
-            onUndoApprove={() => undoApproveMutation.mutate(report.id)}
             archiving={archivingId === report.id}
-            undoing={undoingId === report.id}
           />
         ))}
       </div>

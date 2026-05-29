@@ -487,17 +487,6 @@ export default function TaskFormPage({
           </div>
         )}
 
-        {/* 성공 배너 */}
-        {submitted && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.successBg, border: '1px solid oklch(75% 0.1 160)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: C.success }}>
-              업무가 성공적으로 {isEdit ? '수정' : '생성'}되었습니다. 목록으로 이동 중...
-            </span>
-          </div>
-        )}
 
         {/* ── 기본 정보 ── */}
         <SectionCard title="기본 정보">
@@ -790,6 +779,17 @@ export default function TaskFormPage({
       </div>
 
       {/* ── 확인 팝업 (Portal — 스크롤 컨테이너 밖 body에 렌더) ── */}
+      {/* ── 성공 토스트 ── */}
+      {submitted && createPortal(
+        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'oklch(18% 0.01 260)', color: '#fff', padding: '16px 28px', borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 500, boxShadow: '0 8px 32px oklch(0% 0 0 / 30%)', display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="oklch(62% 0.15 160)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          업무가 {isEdit ? '수정' : '생성'}되었습니다.
+        </div>,
+        document.body
+      )}
+
       {showConfirm && createPortal(
         <div
           onClick={() => setShowConfirm(false)}

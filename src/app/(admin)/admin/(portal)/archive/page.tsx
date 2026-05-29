@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PRIORITY_CONFIG } from '@/constants/task-config';
 
@@ -24,18 +25,22 @@ const PRIORITY_LABEL: Record<string, string> = { high: '높음', medium: '보통
 const PER_PAGE = 10;
 
 /* ── 서브 컴포넌트 ─────────────────────────────────────────────── */
-function FilterSelect({ value, onChange, options, minWidth = 120 }: {
-  value: string; onChange: (v: string) => void; options: string[]; minWidth?: number;
+function FilterSelect({ label, value, onChange, options, minWidth = 120 }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; minWidth?: number;
 }) {
+  const isActive = value !== '전체';
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-      <select className="admin-select" value={value} onChange={e => onChange(e.target.value)}
-        style={{ padding: '8px 32px 8px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', color: C.textPri, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minWidth, outline: 'none' }}>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: 10, pointerEvents: 'none' }}>
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? C.primary : C.textMuted, letterSpacing: '0.04em', paddingLeft: 2 }}>{label}</span>
+      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <select className="admin-select" value={value} onChange={e => onChange(e.target.value)}
+          style={{ padding: '7px 32px 7px 12px', borderRadius: 8, border: `1.5px solid ${isActive ? C.primary : C.border}`, background: isActive ? C.primaryBg : '#fff', color: isActive ? C.primary : C.textPri, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minWidth, outline: 'none' }}>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={isActive ? C.primary : C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: 10, pointerEvents: 'none' }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
     </div>
   );
 }
@@ -252,9 +257,8 @@ export default function ArchivePage() {
   const [deptFilter, setDeptFilter] = useState('전체');
   const [prioFilter, setPrioFilter] = useState('전체');
   const [page,       setPage]       = useState(1);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [detail,     setDetail]     = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const router = useRouter();
   const [deleteError,  setDeleteError]  = useState('');
   const queryClient = useQueryClient();
 
@@ -364,29 +368,68 @@ export default function ArchivePage() {
       </div>
 
       {/* 필터 바 */}
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '14px 16px', marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 220 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            onCompositionStart={() => setIsComposing(true)}
-            onCompositionEnd={e => { setIsComposing(false); setSearch((e.target as HTMLInputElement).value); }}
-            onFocus={e => (e.target.style.borderColor = C.primary)}
-            onBlur={e  => (e.target.style.borderColor = C.border)}
-            placeholder="업무명 또는 직원 이름 검색"
-            style={{ width: '100%', padding: '8px 12px 8px 34px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13, color: C.textPri, outline: 'none', fontFamily: 'inherit', background: C.pageBg }} />
+      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '14px 16px', marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 220px', minWidth: 220 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, letterSpacing: '0.04em', paddingLeft: 2 }}>검색</span>
+          <div style={{ position: 'relative' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={e => { setIsComposing(false); setSearch((e.target as HTMLInputElement).value); }}
+              onFocus={e => (e.target.style.borderColor = C.primary)}
+              onBlur={e  => (e.target.style.borderColor = C.border)}
+              placeholder="업무명 또는 직원 이름 검색"
+              style={{ width: '100%', padding: '7px 12px 7px 34px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13, color: C.textPri, outline: 'none', fontFamily: 'inherit', background: C.pageBg }} />
+          </div>
         </div>
         {/* 기간 세그먼트 */}
-        <div style={{ display: 'flex', gap: 0, background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
-          {(['이번 주', '이번 달', '직접 입력'] as const).map(p => (
-            <button key={p} type="button" onClick={() => setPeriod(p)}
-              style={{ padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', background: period === p ? C.primary : 'transparent', color: period === p ? '#fff' : C.textSec, transition: '150ms ease' }}>
-              {p}
-            </button>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, letterSpacing: '0.04em', paddingLeft: 2 }}>기간</span>
+          <div style={{ display: 'flex', gap: 0, background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
+            {(['이번 주', '이번 달', '직접 입력'] as const).map(p => (
+              <button key={p} type="button" onClick={() => setPeriod(p)}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', background: period === p ? C.primary : 'transparent', color: period === p ? '#fff' : C.textSec, transition: '150ms ease' }}>
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
-        <FilterSelect value={deptFilter} onChange={v => { setDeptFilter(v); setPage(1); }} options={['전체', '보안', '청소', '시설유지보수']} minWidth={130} />
-        <FilterSelect value={prioFilter} onChange={v => { setPrioFilter(v); setPage(1); }} options={['전체', '높음', '보통', '낮음']} minWidth={110} />
-        <button type="button" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', fontSize: 12, fontWeight: 600, color: C.textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <FilterSelect label="직군"   value={deptFilter} onChange={v => { setDeptFilter(v); setPage(1); }} options={['전체', '보안', '청소', '시설유지보수']} minWidth={130} />
+        <FilterSelect label="우선순위" value={prioFilter} onChange={v => { setPrioFilter(v); setPage(1); }} options={['전체', '높음', '보통', '낮음']} minWidth={110} />
+        <button type="button"
+          onClick={() => {
+            const PRIO: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
+            const headers = [
+              '업무명', '업무 설명', '담당 직원', '직군', '배정자', '배정일',
+              '마감일시', '우선순위', '완료 시각', '소요 시간', '검토자', '메모', '제출 사진 수',
+            ];
+            const rows = filtered.map((t: any) => [
+              t.title,
+              (t.description ?? '').replace(/\n/g, ' '),
+              t.employee,
+              t.dept,
+              t.assignedBy ?? '—',
+              t.assignedAt ?? '—',
+              t.deadline ?? '—',
+              PRIO[t.priority as string] ?? t.priority,
+              t.completedAt,
+              t.duration ?? '—',
+              t.reviewer,
+              (t.memo ?? '').replace(/\n/g, ' '),
+              t.photoCount ?? t.photos?.length ?? 0,
+            ]);
+            const csv = [headers, ...rows]
+              .map(row => row.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+              .join('\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `업무아카이브_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', fontSize: 12, fontWeight: 600, color: C.textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           엑셀 내보내기
         </button>
@@ -417,7 +460,7 @@ export default function ArchivePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: C.archive, borderBottom: `1px solid ${C.border}` }}>
-                {['업무명', '직원', '직군', '우선순위', '완료 시각', '검토자', '상세', '삭제'].map(h => (
+                {['업무명', '직원', '직군', '우선순위', '완료 시각', '검토자', '삭제'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', fontSize: 11, fontWeight: 700, color: C.textMuted, textAlign: 'left', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -430,9 +473,10 @@ export default function ArchivePage() {
                 const deptClr = DEPT_COLOR[item.dept] ?? C.textMuted;
                 return (
                   <tr key={item.id}
+                    onClick={() => router.push(`/admin/archive/${item.id}`)}
                     onMouseEnter={e => (e.currentTarget.style.background = C.pageBg)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    style={{ borderTop: `1px solid ${C.border}`, transition: '120ms' }}>
+                    style={{ borderTop: `1px solid ${C.border}`, transition: '120ms', cursor: 'pointer' }}>
                     <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.textPri }}>{item.title}</td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{item.employee}</td>
                     <td style={{ padding: '12px 16px' }}>
@@ -450,14 +494,8 @@ export default function ArchivePage() {
                         {item.reviewer}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <button type="button" className="archive-detail-btn" onClick={() => setDetail(item)}>
-                        상세보기
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                      </button>
-                    </td>
                     {/* 삭제 */}
-                    <td style={{ padding: '12px 16px' }}>
+                    <td style={{ padding: '12px 16px' }} onClick={e => e.stopPropagation()}>
                       <button type="button" className="admin-btn-icon admin-btn-delete"
                         onClick={() => { setDeleteTarget({ id: item.id, title: item.title }); setDeleteError(''); }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -485,7 +523,6 @@ export default function ArchivePage() {
         </div>
       </div>
 
-      {detail && <DetailModal item={detail} onClose={() => setDetail(null)} />}
 
       {/* 삭제 확인 모달 */}
       {deleteTarget && (

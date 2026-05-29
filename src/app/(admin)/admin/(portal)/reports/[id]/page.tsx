@@ -172,6 +172,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const deptClr = Object.entries(DEPT_COLOR).find(([k]) => report.dept?.includes(k))?.[1] ?? C.textMuted;
   const photos: Array<{ id: string; storagePath: string; fileName: string; url: string | null }> =
     report.photos ?? [];
+  const rejectionCount: number = report.rejectionCount ?? 0;
+  const canReject = rejectionCount < 2;
+  const previousRejections: Array<{ memo: string; rejectReason: string; submittedAt: string; rejectedAt: string }> =
+    report.previousRejections ?? [];
 
   /* ── 핸들러 ── */
   function handleApprove() {
@@ -370,6 +374,34 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               {report.memo}
             </div>
           </div>
+
+          {/* ── 이전 제출 이력 ── */}
+          {previousRejections.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.textSec, marginBottom: 10, letterSpacing: '0.03em' }}>
+                이전 제출 이력
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {previousRejections.map((pr, i) => (
+                  <div key={i} style={{ background: C.pageBg, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', background: C.dangerBg, borderBottom: `1px solid oklch(88% 0.06 25)`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.danger }}>{i + 1}차 제출 · 반려됨</span>
+                      <span style={{ fontSize: 11, color: 'oklch(55% 0.1 25)' }}>{pr.submittedAt}</span>
+                    </div>
+                    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {pr.memo && (
+                        <p style={{ margin: 0, fontSize: 13, color: C.textPri, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{pr.memo}</p>
+                      )}
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.danger, marginBottom: 3, letterSpacing: '0.04em' }}>반려 사유</div>
+                        <div style={{ fontSize: 12, color: C.danger, lineHeight: 1.6 }}>{pr.rejectReason}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── 우측: 처리 패널 ── */}
@@ -473,6 +505,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                   )}
 
+                  {/* 반려 2회 초과 안내 */}
+                  {!canReject && (
+                    <div style={{ padding: '10px 14px', background: 'oklch(94% 0.04 280)', border: '1px solid oklch(80% 0.08 280)', borderRadius: 10, fontSize: 13, color: 'oklch(50% 0.12 280)', fontWeight: 600 }}>
+                      반려 2회 초과 — 이 제출은 승인만 가능합니다.
+                    </div>
+                  )}
+
                   {/* 완료 확정 버튼 */}
                   <button
                     type="button"
@@ -494,27 +533,29 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                     {reviewMutation.isPending ? '처리 중...' : '완료 확정'}
                   </button>
 
-                  {/* 재작업 요청 버튼 */}
-                  <button
-                    type="button"
-                    onClick={() => setRejectOpen((v) => !v)}
-                    disabled={reviewMutation.isPending}
-                    style={{
-                      width: '100%', padding: '15px', borderRadius: 10,
-                      border: `2px solid ${rejectOpen ? C.danger : 'oklch(80% 0.08 25)'}`,
-                      background: rejectOpen ? C.dangerBg : '#fff',
-                      color: C.danger, fontSize: 16, fontWeight: 700,
-                      cursor: reviewMutation.isPending ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      transition: '150ms ease',
-                    }}
-                  >
-                    <IconX size={18} />
-                    재작업 요청
-                  </button>
+                  {/* 재작업 요청 버튼 — 반려 2회 미만일 때만 표시 */}
+                  {canReject && (
+                    <button
+                      type="button"
+                      onClick={() => setRejectOpen((v) => !v)}
+                      disabled={reviewMutation.isPending}
+                      style={{
+                        width: '100%', padding: '15px', borderRadius: 10,
+                        border: `2px solid ${rejectOpen ? C.danger : 'oklch(80% 0.08 25)'}`,
+                        background: rejectOpen ? C.dangerBg : '#fff',
+                        color: C.danger, fontSize: 16, fontWeight: 700,
+                        cursor: reviewMutation.isPending ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: '150ms ease',
+                      }}
+                    >
+                      <IconX size={18} />
+                      재작업 요청
+                    </button>
+                  )}
 
                   {/* 반려 사유 입력 영역 */}
-                  {rejectOpen && (
+                  {canReject && rejectOpen && (
                     <div className="reject-area">
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 8 }}>
                         반려 사유 <span style={{ color: C.danger }}>*</span>

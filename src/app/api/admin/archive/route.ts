@@ -43,8 +43,9 @@ export async function GET(req: Request) {
   const { data: raw, error } = await supabaseAdmin
     .from('tasks')
     .select(`
-      id, title, priority, created_at, updated_at, task_job_type, reference_images,
+      id, title, description, priority, deadline, created_at, updated_at, task_job_type, reference_images,
       staff:assignee_id(name, job_types),
+      admins:created_by_id(name),
       reports(
         id, memo, reviewed_at,
         admins:reviewed_by_id(name),
@@ -93,7 +94,11 @@ export async function GET(req: Request) {
     return {
       id:               t.id,
       title:            t.title,
+      description:      t.description ?? '',
       priority:         t.priority,
+      deadline:         fmtDate(t.deadline),
+      assignedBy:       (t.admins as any)?.name ?? t.staff?.name ?? '—',
+      assignedAt:       fmtDate(t.created_at),
       employee:         t.staff?.name ?? '—',
       dept:             taskDept,
       jobTypes,
@@ -102,6 +107,7 @@ export async function GET(req: Request) {
       duration:         durationHours(t.created_at, archivedAt),
       reviewer:         approvedReport?.admins?.name ?? '관리자',
       memo:             approvedReport?.memo ?? '',
+      photoCount:       photos.length,
       photos,
       referenceImages: await Promise.all(
         ((t.reference_images ?? []) as string[]).map(async (path: string) => {

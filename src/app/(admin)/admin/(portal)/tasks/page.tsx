@@ -207,7 +207,7 @@ export default function AdminTasksPage() {
                     {someChecked && !allChecked && <div style={{ width: 8, height: 2, background: 'white', borderRadius: 1 }} />}
                   </div>
                 </th>
-                {['업무명','배정 직원','직군','우선순위','마감일시','상태','반복','수정/삭제'].map(h => (
+                {['업무명','담당자','직군','우선순위','마감일시','상태','반복','수정/삭제'].map(h => (
                   <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: C.textMuted, textAlign: 'left', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>

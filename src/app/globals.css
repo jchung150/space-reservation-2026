@@ -279,3 +279,37 @@ body {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+@media print {
+  /* 사이드바, 툴바, 네비게이션 숨김 */
+  aside,
+  nav,
+  .no-print { display: none !important; }
+
+  /* 레이아웃: 인쇄 영역만 전체 너비 */
+  body, html { background: #fff !important; }
+
+  /* flex 레이아웃에서 사이드바 제거 후 메인이 꽉 차도록 */
+  body > div,
+  #__next,
+  main { display: block !important; width: 100% !important; }
+
+  /* 보고서 본문 */
+  .admin-scroll { overflow: visible !important; height: auto !important; }
+
+  #print-area {
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  img { max-width: 100% !important; page-break-inside: avoid; }
+  section { page-break-inside: avoid; }
+
+  @page { margin: 10mm; size: A4; }
+}
