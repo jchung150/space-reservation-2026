@@ -11,8 +11,19 @@ const notoSansKR = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: '시설 인력 관리',
-  description: '부동산 관리 현장 인력 업무 관리 시스템',
+  title: '영준피엠씨 업무 협업 시스템',
+  description: '영준피엠씨 현장 인력 업무 관리 및 협업 시스템',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: '영준피엠씨',
+    statusBarStyle: 'default',
+  },
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon',
+  },
+  themeColor: '#0d9488',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
