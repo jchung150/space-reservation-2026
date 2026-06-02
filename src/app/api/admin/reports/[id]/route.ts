@@ -116,7 +116,7 @@ export async function GET(
     priority:       r.task?.priority    ?? 'medium',
     taskDescription: r.task?.description ?? '',
     taskDue:        fmt(r.task?.deadline ?? null),
-    taskAssignedAt: fmtDate(r.task?.created_at ?? null),
+    taskAssignedAt: fmt(r.task?.created_at ?? null),
     assignedByName: r.task?.admins?.name ?? '—',
     rejectionCount:     previousRejections.length,
     previousRejections,

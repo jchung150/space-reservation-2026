@@ -161,16 +161,6 @@ export default function DashboardPage() {
 
           {/* 필터된 업무 목록 */}
           <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>
-                  {FILTER_CFG[activeFilter].label}
-                </span>
-                <span style={{ fontSize: 12, color: C.textMuted }}>
-                  {filteredTasks.length}건 표시
-                  {kpiValues[activeFilter] > 10 && ` (전체 ${kpiValues[activeFilter]}건 중)`}
-                </span>
-              </div>
-
               {filteredTasks.length === 0 ? (
                 <div style={{ padding: '40px 20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>
                   해당 업무가 없습니다

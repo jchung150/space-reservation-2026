@@ -206,8 +206,8 @@ function DetailModal({ item, onClose }: { item: any; onClose: () => void }) {
             <div style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, marginBottom: 8, letterSpacing: '0.04em' }}>처리 내역</div>
             <div style={{ background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px' }}>
               {[
-                { label: '담당 직원', val: item.employee },
-                { label: '완료 시각', val: item.completedAt },
+                { label: '담당자',   val: item.employee },
+                { label: '완료일시', val: item.completedAt },
                 { label: '소요 시간', val: item.duration },
                 { label: '검토자',    val: item.reviewer },
               ].map((row, i, arr) => (
@@ -340,7 +340,12 @@ export default function ArchivePage() {
 
     if (search.trim() && !isComposing) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result = result.filter((t: any) => t.title.includes(search) || t.employee.includes(search));
+      result = result.filter((t: any) =>
+        t.title.includes(search) ||
+        t.employee.includes(search) ||
+        (t.description ?? '').includes(search) ||
+        (t.memo ?? '').includes(search)
+      );
     }
 
     return result;
@@ -378,7 +383,7 @@ export default function ArchivePage() {
               onCompositionEnd={e => { setIsComposing(false); setSearch((e.target as HTMLInputElement).value); }}
               onFocus={e => (e.target.style.borderColor = C.primary)}
               onBlur={e  => (e.target.style.borderColor = C.border)}
-              placeholder="업무명 또는 직원 이름 검색"
+              placeholder="업무명, 직원, 업무 설명, 메모 검색"
               style={{ width: '100%', padding: '7px 12px 7px 34px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13, color: C.textPri, outline: 'none', fontFamily: 'inherit', background: C.pageBg }} />
           </div>
         </div>
@@ -400,8 +405,8 @@ export default function ArchivePage() {
           onClick={() => {
             const PRIO: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
             const headers = [
-              '업무명', '업무 설명', '담당 직원', '직군', '배정자', '배정일',
-              '마감일시', '우선순위', '완료 시각', '소요 시간', '검토자', '메모', '제출 사진 수',
+              '업무명', '업무 설명', '담당자', '직군', '배정자', '배정일시',
+              '마감일시', '우선순위', '완료일시', '소요 시간', '검토자', '메모', '제출 사진 수',
             ];
             const rows = filtered.map((t: any) => [
               t.title,
@@ -447,11 +452,6 @@ export default function ArchivePage() {
 
       {/* 테이블 */}
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, background: C.pageBg, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textSec} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>완료 업무 이력</span>
-          <span style={{ fontSize: 12, color: C.textMuted, marginLeft: 'auto' }}>총 {filtered.length}건 중 {pagedItems.length}건 표시</span>
-        </div>
         {isLoading ? (
           <div style={{ padding: '48px 16px', textAlign: 'center', color: C.textMuted, fontSize: 14 }}>불러오는 중...</div>
         ) : isError ? (
@@ -460,7 +460,7 @@ export default function ArchivePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: C.archive, borderBottom: `1px solid ${C.border}` }}>
-                {['업무명', '직원', '직군', '우선순위', '완료 시각', '검토자', '삭제'].map(h => (
+                {['업무명', '담당자', '직군', '우선순위', '완료일시', '검토자', '삭제'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', fontSize: 11, fontWeight: 700, color: C.textMuted, textAlign: 'left', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -489,10 +489,14 @@ export default function ArchivePage() {
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec, fontVariantNumeric: 'tabular-nums' }}>{item.completedAt}</td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ width: 18, height: 18, borderRadius: '50%', background: C.primaryBg, color: C.primary, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>관</span>
-                        {item.reviewer}
-                      </span>
+                      {!item.hasApprovedReport ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: C.primaryBg, borderRadius: 6, padding: '3px 8px' }}>직접 기록</span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ width: 18, height: 18, borderRadius: '50%', background: C.primaryBg, color: C.primary, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>관</span>
+                          {item.reviewer}
+                        </span>
+                      )}
                     </td>
                     {/* 삭제 */}
                     <td style={{ padding: '12px 16px' }} onClick={e => e.stopPropagation()}>

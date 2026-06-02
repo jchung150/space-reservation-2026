@@ -80,12 +80,14 @@ export async function POST(req: Request) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
 
-  const body = await req.json() as TaskCreateInput;
+  const body = await req.json() as TaskCreateInput & { archiveDirect?: boolean };
 
   const { title, description, assigneeId, location, priority, deadline, repeatType } = body;
   if (!title?.trim() || !assigneeId || !deadline || !priority) {
     return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 });
   }
+
+  const archiveDirect = body.archiveDirect === true;
 
   const { data, error } = await supabaseAdmin
     .from('tasks')
@@ -96,13 +98,14 @@ export async function POST(req: Request) {
       created_by_id:  session.id,
       location:       location ?? '',
       priority,
-      status:         'todo',
+      status:         archiveDirect ? 'done' : 'todo',
       deadline,
-      repeat_type:    repeatType ?? 'none',
-      repeat_days:    body.repeatDays  ?? null,
-      repeat_date:    body.repeatDate  ?? null,
+      repeat_type:    archiveDirect ? 'none' : (repeatType ?? 'none'),
+      repeat_days:    archiveDirect ? null : (body.repeatDays  ?? null),
+      repeat_date:    archiveDirect ? null : (body.repeatDate  ?? null),
       task_job_type:     body.taskJobType     ?? null,
       reference_images:  body.referenceImages ?? [],
+      is_archived:    archiveDirect,
     })
     .select()
     .single();

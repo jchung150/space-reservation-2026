@@ -86,7 +86,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
                   { label: '우선순위', value: report.priority },
                   { label: '마감일시', value: report.deadline },
                   { label: '배정자',  value: report.assignedBy },
-                  { label: '배정일',  value: report.assignedAt },
+                  { label: '배정일시', value: report.assignedAt },
                   { label: '완료일시', value: report.completedAt },
                 ].map(row => (
                   <tr key={row.label} style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -186,18 +186,6 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </section>
           )}
-
-          {/* 서명란 */}
-          <section style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', gap: 24, justifyContent: 'flex-end' }}>
-              {[{ label: '담당자', value: report.employee }, { label: '검토자', value: report.reviewer }].map(s => (
-                <div key={s.label} style={{ textAlign: 'center', minWidth: 120 }}>
-                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 48 }}>{s.label}: {s.value}</div>
-                  <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6, fontSize: 12, color: C.textMuted }}>서명</div>
-                </div>
-              ))}
-            </div>
-          </section>
 
           {/* 보고서 하단 */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.textMuted }}>

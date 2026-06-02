@@ -108,6 +108,8 @@ export async function GET(
     }))
   );
 
+  const isDirectRecord = !approvedReport;
+
   return NextResponse.json({
     id:               t.id,
     title:            t.title,
@@ -117,12 +119,14 @@ export async function GET(
     employee:         t.staff?.name ?? '—',
     assignedBy:       t.admins?.name ?? t.staff?.name ?? '—',
     deadline:         fmt(t.deadline),
-    assignedAt:       fmtDate(t.created_at),
-    completedAt:      fmt(approvedReport?.reviewed_at ?? t.updated_at),
+    assignedAt:       fmt(t.created_at),
+    completedAt:      isDirectRecord ? fmt(t.deadline) : fmt(approvedReport?.reviewed_at ?? t.updated_at),
     reviewer:         approvedReport?.admins?.name ?? '—',
+    recorder:         t.admins?.name ?? '—',
     memo:             approvedReport?.memo ?? '',
     referenceImages,
     submittedPhotos,
     rejectionHistory,
+    isDirectRecord,
   });
 }

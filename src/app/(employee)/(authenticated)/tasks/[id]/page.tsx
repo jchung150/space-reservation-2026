@@ -300,7 +300,7 @@ export default function TaskDetailPage({
             value={task.assignedByName ?? '—'}
           />
           <Divider />
-          <InfoRow icon={<IconCalendar />} label="배정일" value={getDateOnlyLabel(task.createdAt)} />
+          <InfoRow icon={<IconCalendar />} label="배정일시" value={getFullDateTimeLabel(task.createdAt)} />
           <Divider />
           <InfoRow
             icon={<IconClock />}

@@ -306,6 +306,7 @@ export default function TaskFormPage({
   const [submitted,   setSubmitted]   = useState(false);
   const [apiError,    setApiError]    = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isDirect,    setIsDirect]    = useState(false);
 
   /* 초기 직군 동기화 (edit 모드에서 initialData.assigneeId로 직군 유추) */
   useEffect(() => {
@@ -368,11 +369,12 @@ export default function TaskFormPage({
     return e;
   }
 
-  function handleClickSave() {
+  function handleClickSave(direct = false) {
     if (imageError) return;
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) return;
+    setIsDirect(direct);
     setShowConfirm(true);
   }
 
@@ -406,8 +408,9 @@ export default function TaskFormPage({
       location: '',
       priority,
       deadline,
-      repeatType: repeat ? REPEAT_TYPE_MAP[repeatType] : 'none' as RepeatType,
+      repeatType: repeat && !isDirect ? REPEAT_TYPE_MAP[repeatType] : 'none' as RepeatType,
       referenceImages,
+      ...(isDirect && { archiveDirect: true }),
     };
 
     try {
@@ -426,6 +429,7 @@ export default function TaskFormPage({
       const resData = await res.json();
       setSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ['admin-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['archive'] });
 
       // 요청에서 전환된 경우 요청 상태를 'converted'로 업데이트
       if (fromRequestId) {
@@ -437,7 +441,7 @@ export default function TaskFormPage({
         queryClient.invalidateQueries({ queryKey: ['task-requests'] });
       }
 
-      setTimeout(() => router.push('/admin/tasks'), 1200);
+      setTimeout(() => router.push(isDirect ? '/admin/archive' : '/admin/tasks'), 1200);
     } catch {
       setApiError('네트워크 오류가 발생했습니다.');
     } finally {
@@ -760,9 +764,29 @@ export default function TaskFormPage({
           >
             취소
           </button>
+          {!isEdit && (
+            <button
+              type="button"
+              onClick={() => handleClickSave(true)}
+              disabled={saving}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '11px 22px', borderRadius: 8,
+                border: `1.5px solid ${C.primary}`, background: '#fff', color: C.primary,
+                fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', transition: '150ms ease',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              바로 저장하기
+            </button>
+          )}
           <button
             type="button"
-            onClick={handleClickSave}
+            onClick={() => handleClickSave(false)}
             disabled={saving}
             style={{
               padding: '11px 32px', borderRadius: 8, border: 'none',
@@ -785,7 +809,7 @@ export default function TaskFormPage({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="oklch(62% 0.15 160)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          업무가 {isEdit ? '수정' : '생성'}되었습니다.
+          {isDirect ? '아카이브에 바로 저장되었습니다.' : `업무가 ${isEdit ? '수정' : '생성'}되었습니다.`}
         </div>,
         document.body
       )}
@@ -800,7 +824,7 @@ export default function TaskFormPage({
             style={{ width: 360, background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px oklch(0% 0 0 / 25%)', padding: '28px 24px 20px' }}
           >
             <p style={{ fontSize: 16, fontWeight: 700, color: C.textPri, marginBottom: 20, textAlign: 'center' }}>
-              {isEdit ? '업무를 수정하시겠습니까?' : '새로운 업무를 생성하시겠습니까?'}
+              {isDirect ? '업무를 생성하고 바로 아카이브에 저장하시겠습니까?' : isEdit ? '업무를 수정하시겠습니까?' : '새로운 업무를 생성하시겠습니까?'}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button

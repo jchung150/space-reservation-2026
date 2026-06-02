@@ -194,7 +194,7 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
               </span>
             </InfoRow>
             <InfoRow label="배정자">{task.assignedByName || task.employeeName || '—'}</InfoRow>
-            <InfoRow label="배정일">{getDateOnlyLabel(task.createdAt)}</InfoRow>
+            <InfoRow label="배정일시">{getFullDateTimeLabel(task.createdAt)}</InfoRow>
             <InfoRow label="반복">
               {task.repeatType && task.repeatType !== 'none'
                 ? (REPEAT_LABEL[task.repeatType] ?? task.repeatType)

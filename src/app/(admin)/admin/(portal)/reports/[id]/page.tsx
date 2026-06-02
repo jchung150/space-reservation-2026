@@ -422,7 +422,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <div style={{ padding: '4px 16px 8px' }}>
               <InfoRow label="업무 설명" value={report.taskDescription ?? '—'} />
               <InfoRow label="마감일시"  value={report.taskDue         ?? '—'} />
-              <InfoRow label="배정일"    value={report.taskAssignedAt  ?? '—'} />
+              <InfoRow label="배정일시"   value={report.taskAssignedAt  ?? '—'} />
             </div>
             {/* 참고 이미지 */}
             {(report.referenceImages ?? []).length > 0 && (
