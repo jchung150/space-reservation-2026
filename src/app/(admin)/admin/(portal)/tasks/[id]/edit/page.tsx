@@ -26,6 +26,8 @@ export default function EditTaskPage({ params }: { params: Promise<{ id: string 
           dueDate:        `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2,'0')}-${String(due.getDate()).padStart(2,'0')}`,
           dueTime:        `${String(due.getHours()).padStart(2,'0')}:${String(due.getMinutes()).padStart(2,'0')}`,
           assigneeId:     task.assigneeId,
+          buildingId:     task.buildingId ?? '',
+          taskTypeId:     task.taskTypeId ?? '',
           existingImages: urls.map((url, i) => ({ url, path: paths[i] ?? '' })),
         });
       })

@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data: raw, error } = await supabaseAdmin
     .from('tasks')
-    .select('id, title, status, priority, deadline, task_job_type, staff:assignee_id(name, job_types)')
+    .select('id, title, status, priority, deadline, task_job_type, staff:assignee_id(name, job_types), buildings:building_id(name), task_types:task_type_id(name)')
     .eq('is_archived', false)
     .order('deadline', { ascending: true });
 
@@ -55,6 +55,8 @@ export async function GET() {
         deadline:     t.deadline,
         employeeName: t.staff?.name ?? '—',
         dept,
+        buildingName: t.buildings?.name ?? null,
+        taskTypeName: t.task_types?.name ?? null,
       };
     });
 

@@ -4,6 +4,23 @@ export type JobType    = 'security' | 'cleaning' | 'maintenance';
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type AdminRole  = 'super' | 'admin';
 
+export interface Building {
+  id:        string;
+  name:      string;
+  sortOrder: number;
+  isActive:  boolean;
+  createdAt: string;
+}
+
+export interface TaskType {
+  id:        string;
+  name:      string;
+  jobType:   JobType;
+  sortOrder: number;
+  isActive:  boolean;
+  createdAt: string;
+}
+
 export interface Staff {
   id:        string;
   name:      string;
@@ -23,6 +40,10 @@ export interface Task {
   assignee?:       Pick<Staff, 'id' | 'name' | 'jobTypes'>;
   assignedByName?: string;
   taskJobType?:    JobType | null; // 업무 생성 시 선택한 직군
+  taskTypeId?:     string | null;
+  taskTypeName?:   string | null;
+  buildingId?:     string | null;
+  buildingName?:   string | null;
   location:        string;
   priority:        Priority;
   status:          TaskStatus;
@@ -64,6 +85,8 @@ export interface TaskCreateInput {
   description:  string;
   assigneeId:   string;
   taskJobType?: string; // 업무 생성 시 선택한 직군 (배정 직군 통계용)
+  taskTypeId:   string;
+  buildingId:   string;
   location:     string;
   priority:     Priority;
   deadline:    string;
@@ -73,7 +96,9 @@ export interface TaskCreateInput {
   referenceImages?:  string[];
 }
 
-export type TaskUpdateInput = Partial<TaskCreateInput> & {
+export type TaskUpdateInput = Partial<Omit<TaskCreateInput, 'buildingId' | 'taskTypeId'>> & {
+  buildingId?: string;
+  taskTypeId?: string;
   status?: TaskStatus;
   reworkReason?: string;
 };

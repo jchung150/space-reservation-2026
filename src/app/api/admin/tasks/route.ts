@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
   let query = supabaseAdmin
     .from('tasks')
-    .select('*, staff:assignee_id(name, job_types), admins:created_by_id(name)', { count: 'exact' })
+    .select('*, staff:assignee_id(name, job_types), admins:created_by_id(name), buildings:building_id(name), task_types:task_type_id(name, job_type)', { count: 'exact' })
     .eq('is_archived', false);
 
   const PRIORITY_LABEL: Record<string, string> = { '높음': 'high', '보통': 'medium', '낮음': 'low' };
@@ -82,10 +82,22 @@ export async function POST(req: Request) {
 
   const body = await req.json() as TaskCreateInput & { archiveDirect?: boolean };
 
-  const { title, description, assigneeId, location, priority, deadline, repeatType } = body;
-  if (!title?.trim() || !assigneeId || !deadline || !priority) {
+  const { title, description, assigneeId, location, priority, deadline, repeatType, buildingId, taskTypeId } = body;
+  if (!title?.trim() || !assigneeId || !deadline || !priority || !buildingId || !taskTypeId) {
     return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 });
   }
+
+  // 업무 유형에서 직군(job_type) 파생 — task_job_type과 동기화
+  const { data: taskType, error: typeErr } = await supabaseAdmin
+    .from('task_types')
+    .select('job_type')
+    .eq('id', taskTypeId)
+    .single();
+
+  if (typeErr || !taskType) {
+    return NextResponse.json({ error: '선택한 업무 유형을 찾을 수 없습니다.' }, { status: 400 });
+  }
+  const derivedJobType = taskType.job_type;
 
   const archiveDirect = body.archiveDirect === true;
 
@@ -103,7 +115,9 @@ export async function POST(req: Request) {
       repeat_type:    archiveDirect ? 'none' : (repeatType ?? 'none'),
       repeat_days:    archiveDirect ? null : (body.repeatDays  ?? null),
       repeat_date:    archiveDirect ? null : (body.repeatDate  ?? null),
-      task_job_type:     body.taskJobType     ?? null,
+      task_type_id:      taskTypeId,
+      task_job_type:     derivedJobType,
+      building_id:       buildingId,
       reference_images:  body.referenceImages ?? [],
       is_archived:    archiveDirect,
     })

@@ -1,6 +1,7 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageLightbox from '@/components/ImageLightbox';
@@ -122,6 +123,69 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
     onError: () => setReviewErr('저장에 실패했습니다.'),
   });
 
+  /* ── 완료 처리 ── */
+  const [showComplete,   setShowComplete]   = useState(false);
+  const [completeFiles,  setCompleteFiles]  = useState<{ id: string; file: File; preview: string }[]>([]);
+  const [completeError,  setCompleteError]  = useState('');
+  const completeInputRef = useRef<HTMLInputElement>(null);
+
+  function addCompleteFiles(files: FileList | null) {
+    if (!files) return;
+    setCompleteError('');
+    const VALID = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+    for (const file of Array.from(files)) {
+      if (completeFiles.length >= 5) break;
+      if (!VALID.has(file.type) && !file.name.match(/\.(heic|heif)$/i)) continue;
+      if (file.size > 10 * 1024 * 1024) {
+        setCompleteError(`"${file.name}"이(가) 10MB를 초과합니다.`);
+        return;
+      }
+      const preview = URL.createObjectURL(file);
+      setCompleteFiles(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, file, preview }]);
+    }
+    if (completeInputRef.current) completeInputRef.current.value = '';
+  }
+
+  function removeCompleteFile(fid: string) {
+    setCompleteFiles(prev => {
+      const t = prev.find(i => i.id === fid);
+      if (t) URL.revokeObjectURL(t.preview);
+      return prev.filter(i => i.id !== fid);
+    });
+  }
+
+  const completeMutation = useMutation({
+    mutationFn: async () => {
+      let paths: string[] = [];
+      if (completeFiles.length > 0) {
+        const fd = new FormData();
+        for (const f of completeFiles) fd.append('images', f.file, f.file.name);
+        const upload = await fetch('/api/admin/reference-images', { method: 'POST', body: fd });
+        if (!upload.ok) throw new Error('사진 업로드에 실패했습니다.');
+        const j = await upload.json();
+        paths = j.paths ?? [];
+      }
+      const res = await fetch(`/api/admin/tasks/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceImages: paths }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? '완료 처리에 실패했습니다.');
+      }
+    },
+    onSuccess: () => {
+      // preview URL 해제
+      completeFiles.forEach(f => URL.revokeObjectURL(f.preview));
+      setCompleteFiles([]);
+      setShowComplete(false);
+      setToast('업무가 완료 처리되었습니다.');
+      setTimeout(() => router.push('/admin/tasks'), 1500);
+    },
+    onError: (e: Error) => setCompleteError(e.message),
+  });
+
   if (isLoading) {
     return (
       <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
@@ -175,6 +239,14 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             수정
           </Link>
+          {task.status !== 'done' && (
+            <button type="button"
+              onClick={() => { setCompleteError(''); setShowComplete(true); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: 'none', background: C.success, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px oklch(62% 0.15 160 / 30%)' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              완료 처리
+            </button>
+          )}
         </div>
       </div>
 
@@ -187,6 +259,8 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
           {/* 기본 정보 */}
           <Card title="기본 정보">
             <InfoRow label="담당자">{task.employeeName || '—'}</InfoRow>
+            <InfoRow label="건물">{task.buildingName || '—'}</InfoRow>
+            <InfoRow label="업무 유형">{task.taskTypeName || '—'}</InfoRow>
             <InfoRow label="직군">{task.dept || '—'}</InfoRow>
             <InfoRow label="마감일시">
               <span style={{ color: new Date(task.deadline) < new Date() && task.status !== 'done' ? C.danger : C.textPri }}>
@@ -416,6 +490,73 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
           onClose={() => setLightbox(null)}
           onNav={i => setLightbox({ ...lightbox, index: i })}
         />
+      )}
+
+      {/* ── 완료 처리 모달 ── */}
+      {showComplete && createPortal(
+        <div onClick={() => { if (!completeMutation.isPending) setShowComplete(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'oklch(0% 0 0 / 45%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width: 460, background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px oklch(0% 0 0 / 25%)', padding: '24px 24px 20px' }}>
+
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: C.textPri, marginBottom: 6 }}>업무를 완료 처리하시겠습니까?</h2>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 18, lineHeight: 1.6 }}>
+              직원 보고 없이 관리자가 완료 상태로 표시하고 아카이브로 이동합니다.
+              필요 시 완료 사진을 첨부할 수 있습니다.
+            </p>
+
+            <input
+              ref={completeInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+              multiple
+              style={{ display: 'none' }}
+              onChange={e => addCompleteFiles(e.target.files)}
+            />
+
+            {/* 사진 프리뷰 */}
+            {completeFiles.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                {completeFiles.map(f => (
+                  <div key={f.id} style={{ position: 'relative', width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={f.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <button type="button" onClick={() => removeCompleteFile(f.id)}
+                      style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'oklch(0% 0 0 / 55%)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', padding: 0 }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 사진 추가 버튼 */}
+            {completeFiles.length < 5 && (
+              <button type="button" onClick={() => completeInputRef.current?.click()}
+                style={{ width: '100%', padding: '10px', borderRadius: 8, border: `1.5px dashed ${C.border}`, background: C.pageBg, color: C.textSec, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
+                {completeFiles.length === 0 ? '사진 첨부 (선택 · 최대 5장)' : `사진 더 추가 (${completeFiles.length}/5)`}
+              </button>
+            )}
+
+            {completeError && (
+              <p style={{ fontSize: 12, color: C.danger, fontWeight: 600, marginBottom: 12, padding: '8px 12px', background: C.dangerBg, borderRadius: 8 }}>{completeError}</p>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button"
+                onClick={() => { if (!completeMutation.isPending) setShowComplete(false); }}
+                style={{ flex: 1, padding: '11px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: '#fff', fontSize: 14, fontWeight: 600, color: C.textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
+                취소
+              </button>
+              <button type="button"
+                onClick={() => completeMutation.mutate()}
+                disabled={completeMutation.isPending}
+                style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: completeMutation.isPending ? 'oklch(75% 0.08 160)' : C.success, color: '#fff', fontSize: 14, fontWeight: 700, cursor: completeMutation.isPending ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px oklch(62% 0.15 160 / 30%)' }}>
+                {completeMutation.isPending ? '처리 중...' : '완료 처리'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

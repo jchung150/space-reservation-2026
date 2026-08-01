@@ -102,7 +102,7 @@ export async function getLatestDeadline(rootId: string): Promise<string | null> 
 async function getRootTask(rootId: string) {
   const { data } = await supabaseAdmin
     .from('tasks')
-    .select('id, title, description, assignee_id, created_by_id, location, priority, repeat_type, deadline, task_job_type')
+    .select('id, title, description, assignee_id, created_by_id, location, priority, repeat_type, deadline, task_job_type, building_id, task_type_id')
     .eq('id', rootId)
     .single();
   return data as {
@@ -156,6 +156,8 @@ export async function ensureAheadInstances(task: {
       repeat_type:    repeatType,
       parent_task_id: rootId,
       task_job_type:  (rootTask as any).task_job_type ?? null, // 배정 직군 상속
+      task_type_id:   (rootTask as any).task_type_id ?? null,  // 업무 유형 상속
+      building_id:    (rootTask as any).building_id ?? null,   // 건물 상속
     });
 
     currentDeadline = nextDeadline;

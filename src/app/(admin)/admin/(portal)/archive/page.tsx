@@ -251,7 +251,7 @@ function DetailModal({ item, onClose }: { item: any; onClose: () => void }) {
 export default function ArchivePage() {
   const [search,     setSearch]     = useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const [period,     setPeriod]     = useState('이번 달');
+  const [period,     setPeriod]     = useState('직접 입력');
   const [dateFrom,   setDateFrom]   = useState('');
   const [dateTo,     setDateTo]     = useState('');
   const [deptFilter, setDeptFilter] = useState('전체');
@@ -405,12 +405,14 @@ export default function ArchivePage() {
           onClick={() => {
             const PRIO: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
             const headers = [
-              '업무명', '업무 설명', '담당자', '직군', '배정자', '배정일시',
+              '업무명', '업무 설명', '건물', '업무 유형', '담당자', '직군', '배정자', '배정일시',
               '마감일시', '우선순위', '완료일시', '소요 시간', '검토자', '메모', '제출 사진 수',
             ];
             const rows = filtered.map((t: any) => [
               t.title,
               (t.description ?? '').replace(/\n/g, ' '),
+              t.buildingName ?? '—',
+              t.taskTypeName ?? '—',
               t.employee,
               t.dept,
               t.assignedBy ?? '—',

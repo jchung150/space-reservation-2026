@@ -40,7 +40,9 @@ export async function GET(
       staff:submitted_by_id ( id, name, job_types ),
       task:tasks!task_id (
         id, title, priority, description, deadline, created_at, task_job_type, reference_images,
-        admins:created_by_id ( name )
+        admins:created_by_id ( name ),
+        buildings:building_id ( name ),
+        task_types:task_type_id ( name )
       ),
       photos:report_photos ( id, storage_path, file_name, sort_order )
     `)
@@ -117,6 +119,8 @@ export async function GET(
     taskDescription: r.task?.description ?? '',
     taskDue:        fmt(r.task?.deadline ?? null),
     taskAssignedAt: fmt(r.task?.created_at ?? null),
+    taskBuilding:   r.task?.buildings?.name ?? null,
+    taskTypeName:   r.task?.task_types?.name ?? null,
     assignedByName: r.task?.admins?.name ?? '—',
     rejectionCount:     previousRejections.length,
     previousRejections,

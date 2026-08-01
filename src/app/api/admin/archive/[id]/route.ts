@@ -42,6 +42,8 @@ export async function GET(
       task_job_type, reference_images, is_archived,
       staff:assignee_id ( name, job_types ),
       admins:created_by_id ( name ),
+      buildings:building_id ( name ),
+      task_types:task_type_id ( name ),
       reports (
         id, memo, status, reject_reason, created_at, reviewed_at,
         admins:reviewed_by_id ( name ),
@@ -116,6 +118,8 @@ export async function GET(
     description:      t.description ?? '',
     priority:         PRIORITY_MAP[t.priority] ?? t.priority,
     dept,
+    buildingName:     t.buildings?.name ?? null,
+    taskTypeName:     t.task_types?.name ?? null,
     employee:         t.staff?.name ?? '—',
     assignedBy:       t.admins?.name ?? t.staff?.name ?? '—',
     deadline:         fmt(t.deadline),

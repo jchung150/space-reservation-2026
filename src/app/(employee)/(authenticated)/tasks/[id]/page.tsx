@@ -294,6 +294,10 @@ export default function TaskDetailPage({
 
           <InfoRow icon={<IconClock />} label="마감일시" value={getFullDateTimeLabel(task.deadline)} />
           <Divider />
+          <InfoRow icon={<IconMapPin />} label="건물" value={task.buildingName ?? '—'} />
+          <Divider />
+          <InfoRow icon={<IconClock />} label="업무 유형" value={task.taskTypeName ?? '—'} />
+          <Divider />
           <InfoRow
             icon={<IconUser />}
             label="배정자"

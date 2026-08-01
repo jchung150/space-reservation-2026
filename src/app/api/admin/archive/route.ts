@@ -46,6 +46,8 @@ export async function GET(req: Request) {
       id, title, description, priority, deadline, created_at, updated_at, task_job_type, reference_images,
       staff:assignee_id(name, job_types),
       admins:created_by_id(name),
+      buildings:building_id(name),
+      task_types:task_type_id(name),
       reports(
         id, memo, reviewed_at,
         admins:reviewed_by_id(name),
@@ -101,6 +103,8 @@ export async function GET(req: Request) {
       assignedAt:       fmtDate(t.created_at),
       employee:         t.staff?.name ?? '—',
       dept:             taskDept,
+      buildingName:     t.buildings?.name ?? null,
+      taskTypeName:     t.task_types?.name ?? null,
       jobTypes,
       completedAt:      fmtDate(archivedAt),
       completedAtRaw:   archivedAt,

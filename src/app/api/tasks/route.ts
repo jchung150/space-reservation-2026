@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('tasks')
-    .select('*, admins:created_by_id(name)')
+    .select('*, admins:created_by_id(name), buildings:building_id(name), task_types:task_type_id(name)')
     .eq('assignee_id', session.id)
     .eq('is_archived', false)
     .order('deadline', { ascending: true });

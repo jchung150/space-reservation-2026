@@ -29,8 +29,6 @@ interface StaffOption {
   depts:    string[];   // 표시용 레이블 배열
 }
 
-const DEPT_LABELS = ['보안', '청소', '시설유지보수'] as const;
-const JOB_FROM_DEPT: Record<string, string> = { 보안: 'security', 청소: 'cleaning', 시설유지보수: 'maintenance' };
 
 const PRIORITY_OPTIONS = [
   { key: 'high'   as Priority, label: '높음', color: 'oklch(62% 0.16 25)'  },
@@ -49,7 +47,26 @@ export interface TaskFormInitialData {
   dueDate:             string;
   dueTime:             string;
   assigneeId:          string;
+  buildingId?:         string;
+  taskTypeId?:         string;
   existingImages?:     { url: string; path: string }[];
+}
+
+/* ── 건물 옵션 타입 ────────────────────────────────────────────── */
+interface BuildingOption {
+  id:        string;
+  name:      string;
+  sortOrder: number;
+  isActive:  boolean;
+}
+
+/* ── 업무 유형 옵션 타입 ─────────────────────────────────────── */
+interface TaskTypeOption {
+  id:        string;
+  name:      string;
+  jobType:   string;
+  sortOrder: number;
+  isActive:  boolean;
 }
 
 /* ── 유효성 에러 타입 ───────────────────────────────────────────── */
@@ -58,6 +75,8 @@ interface FormErrors {
   desc?:       string;
   dueDate?:    string;
   assigneeId?: string;
+  buildingId?: string;
+  taskTypeId?: string;
 }
 
 /* ── 공통 소형 컴포넌트 ─────────────────────────────────────────── */
@@ -269,6 +288,12 @@ export default function TaskFormPage({
   const [staffList,  setStaffList]  = useState<StaffOption[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
 
+  /* 건물 목록 (API) */
+  const [buildingList, setBuildingList] = useState<BuildingOption[]>([]);
+
+  /* 업무 유형 목록 (API) */
+  const [taskTypeList, setTaskTypeList] = useState<TaskTypeOption[]>([]);
+
   useEffect(() => {
     fetch('/api/admin/staff')
       .then(r => r.json())
@@ -277,14 +302,29 @@ export default function TaskFormPage({
       .finally(() => setStaffLoading(false));
   }, []);
 
+  useEffect(() => {
+    fetch('/api/admin/buildings?active=true')
+      .then(r => r.json())
+      .then((data: BuildingOption[]) => setBuildingList(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/task-types?active=true')
+      .then(r => r.json())
+      .then((data: TaskTypeOption[]) => setTaskTypeList(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  }, []);
+
   /* 폼 상태 */
   const [title,      setTitle]      = useState(initialData?.title     ?? prefill?.title    ?? '');
   const [desc,       setDesc]       = useState(initialData?.desc      ?? prefill?.desc     ?? '');
   const [priority,   setPriority]   = useState<Priority>(initialData?.priority  ?? 'medium');
   const [dueDate,    setDueDate]    = useState(initialData?.dueDate   ?? '');
   const [dueTime,    setDueTime]    = useState(initialData?.dueTime   ?? '');
-  const [dept,       setDept]       = useState('보안');         // 현재 선택 직군
   const [assigneeId, setAssigneeId] = useState(initialData?.assigneeId ?? '');
+  const [buildingId, setBuildingId] = useState(initialData?.buildingId ?? '');
+  const [taskTypeId, setTaskTypeId] = useState(initialData?.taskTypeId ?? '');
 
   /* 반복 설정 */
   const [repeat,     setRepeat]     = useState(false);
@@ -308,23 +348,8 @@ export default function TaskFormPage({
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDirect,    setIsDirect]    = useState(false);
 
-  /* 초기 직군 동기화 (edit 모드에서 initialData.assigneeId로 직군 유추) */
-  useEffect(() => {
-    if (!initialData?.assigneeId || staffList.length === 0) return;
-    const found = staffList.find(s => s.id === initialData.assigneeId);
-    if (found) {
-      // 첫 번째 직군으로 초기 직군 탭 설정
-      const firstDept = found.depts[0];
-      setDept(firstDept === '시설' ? '시설유지보수' : (firstDept ?? '보안'));
-    }
-  }, [staffList, initialData?.assigneeId]);
-
-  /* 현재 직군에 속한 직원 */
-  // 선택 직군에 해당하는 직군을 보유한 직원 (복수 직군 지원)
-  const staffInDept = staffList.filter(s => {
-    const jobType = JOB_FROM_DEPT[dept];
-    return jobType ? s.jobTypes.includes(jobType) : false;
-  });
+  /* 배정 가능한 전체 직원 (직군 제한 없음) */
+  const assignableStaff = staffList;
 
   const [imageError, setImageError] = useState('');
 
@@ -355,9 +380,9 @@ export default function TaskFormPage({
     });
   }
 
-  function changeDept(newDept: string) {
-    setDept(newDept);
-    setAssigneeId(''); // 직군 변경 시 배정 초기화
+  function changeTaskType(newId: string) {
+    setTaskTypeId(newId);
+    if (errors.taskTypeId) setErrors(p => ({ ...p, taskTypeId: undefined }));
   }
 
   function validate(): FormErrors {
@@ -365,7 +390,9 @@ export default function TaskFormPage({
     if (!title.trim())  e.title      = '업무명을 입력해주세요';
     if (!desc.trim())   e.desc       = '업무 설명을 입력해주세요';
     if (!dueDate)       e.dueDate    = '마감일을 선택해주세요';
+    if (!taskTypeId)    e.taskTypeId = '업무 유형을 선택해주세요';
     if (!assigneeId)    e.assigneeId = '배정 직원을 선택해주세요';
+    if (!buildingId)    e.buildingId = '건물을 선택해주세요';
     return e;
   }
 
@@ -404,7 +431,8 @@ export default function TaskFormPage({
       title: title.trim(),
       description: desc.trim(),
       assigneeId,
-      taskJobType: JOB_FROM_DEPT[dept] ?? null,
+      buildingId,
+      taskTypeId,
       location: '',
       priority,
       deadline,
@@ -520,6 +548,76 @@ export default function TaskFormPage({
             <ErrorMsg msg={errors.desc} />
           </div>
 
+          {/* 건물 */}
+          <div style={{ marginBottom: 16 }}>
+            <Label required>건물</Label>
+            {buildingList.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.textMuted }}>
+                등록된 건물이 없습니다. 먼저 <a href="/admin/master/buildings" style={{ color: C.primary, fontWeight: 600 }}>기준 정보 관리</a>에서 추가하세요.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {buildingList.map(b => {
+                  const checked = buildingId === b.id;
+                  return (
+                    <button key={b.id} type="button"
+                      onClick={() => { setBuildingId(b.id); if (errors.buildingId) setErrors(p => ({ ...p, buildingId: undefined })); }}
+                      style={{
+                        padding: '9px 14px', borderRadius: 8, cursor: 'pointer',
+                        border: `1.5px solid ${checked ? C.primary : errors.buildingId ? C.danger : C.border}`,
+                        background: checked ? C.primaryBg : C.pageBg,
+                        fontSize: 13, fontWeight: 600, color: checked ? C.primary : C.textPri,
+                        transition: '150ms ease', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}>
+                      {b.name}
+                      {checked && (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <ErrorMsg msg={errors.buildingId} />
+          </div>
+
+          {/* 업무 유형 */}
+          <div style={{ marginBottom: 16 }}>
+            <Label required>업무 유형</Label>
+            {taskTypeList.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.textMuted }}>
+                등록된 유형이 없습니다. 먼저 <a href="/admin/master/task-types" style={{ color: C.primary, fontWeight: 600 }}>기준 정보 관리</a>에서 추가하세요.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {taskTypeList.map(t => {
+                  const checked = taskTypeId === t.id;
+                  return (
+                    <button key={t.id} type="button"
+                      onClick={() => changeTaskType(t.id)}
+                      style={{
+                        padding: '9px 14px', borderRadius: 8, cursor: 'pointer',
+                        border: `1.5px solid ${checked ? C.primary : errors.taskTypeId ? C.danger : C.border}`,
+                        background: checked ? C.primaryBg : C.pageBg,
+                        fontSize: 13, fontWeight: 600, color: checked ? C.primary : C.textPri,
+                        transition: '150ms ease', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}>
+                      {t.name}
+                      {checked && (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <ErrorMsg msg={errors.taskTypeId} />
+          </div>
+
           {/* 우선순위 */}
           <div style={{ marginBottom: 16 }}>
             <Label required>우선순위</Label>
@@ -569,33 +667,18 @@ export default function TaskFormPage({
           </div>
         </SectionCard>
 
-        {/* ── 배정 ── */}
-        <SectionCard title="배정">
+        {/* ── 배정 직원 ── */}
+        <SectionCard title="배정 직원">
 
-          {/* 직군 */}
-          <div style={{ marginBottom: 16 }}>
-            <Label required>직군</Label>
-            <div style={{ position: 'relative', width: 200 }}>
-              <select className="admin-select" value={dept} onChange={e => changeDept(e.target.value)}
-                style={{ width: '100%', padding: '10px 36px 10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: C.pageBg, fontSize: 14, color: C.textPri, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
-                {DEPT_LABELS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
-          </div>
-
-          {/* 배정 직원 */}
           <div>
             <Label required>배정 직원</Label>
             {staffLoading ? (
               <div style={{ fontSize: 13, color: C.textMuted }}>직원 목록 불러오는 중...</div>
-            ) : staffInDept.length === 0 ? (
-              <div style={{ fontSize: 13, color: C.textMuted }}>해당 직군의 활성 직원이 없습니다.</div>
+            ) : assignableStaff.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.textMuted }}>활성 직원이 없습니다.</div>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                {staffInDept.map(staff => {
+                {assignableStaff.map(staff => {
                   const checked = assigneeId === staff.id;
                   return (
                     <button key={staff.id} type="button"

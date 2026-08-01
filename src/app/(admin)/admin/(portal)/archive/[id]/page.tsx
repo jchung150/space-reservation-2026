@@ -81,8 +81,10 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <tbody>
                 {[
-                  { label: '담당자',  value: report.employee },
-                  { label: '직군',   value: report.dept },
+                  { label: '담당자',   value: report.employee },
+                  { label: '건물',    value: report.buildingName ?? '—' },
+                  { label: '업무 유형', value: report.taskTypeName ?? '—' },
+                  { label: '직군',    value: report.dept },
                   { label: '우선순위', value: report.priority },
                   { label: '마감일시', value: report.deadline },
                   { label: '배정자',  value: report.assignedBy },

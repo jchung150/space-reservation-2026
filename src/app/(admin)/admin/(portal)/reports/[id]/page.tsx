@@ -421,6 +421,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <CardHeader>원본 업무 정보</CardHeader>
             <div style={{ padding: '4px 16px 8px' }}>
               <InfoRow label="업무 설명" value={report.taskDescription ?? '—'} />
+              <InfoRow label="건물"      value={report.taskBuilding    ?? '—'} />
+              <InfoRow label="업무 유형" value={report.taskTypeName    ?? '—'} />
               <InfoRow label="마감일시"  value={report.taskDue         ?? '—'} />
               <InfoRow label="배정일시"   value={report.taskAssignedAt  ?? '—'} />
             </div>

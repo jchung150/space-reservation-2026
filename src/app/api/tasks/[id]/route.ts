@@ -21,7 +21,7 @@ export async function GET(
   const [taskRes, reportsRes] = await Promise.all([
     supabaseAdmin
       .from('tasks')
-      .select('*, admins:created_by_id(name)')
+      .select('*, admins:created_by_id(name), buildings:building_id(name), task_types:task_type_id(name)')
       .eq('id', id)
       .eq('assignee_id', session.id)
       .single(),

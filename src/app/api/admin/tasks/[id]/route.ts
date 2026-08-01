@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [taskRes, reportsRes] = await Promise.all([
     supabaseAdmin
       .from('tasks')
-      .select('*, staff:assignee_id(name, job_types), admins:created_by_id(name)')
+      .select('*, staff:assignee_id(name, job_types), admins:created_by_id(name), buildings:building_id(name), task_types:task_type_id(name, job_type)')
       .eq('id', id)
       .single(),
 
@@ -116,6 +116,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.priority         !== undefined) updateData.priority          = body.priority;
   if (body.deadline         !== undefined) updateData.deadline          = body.deadline;
   if (body.referenceImages  !== undefined) updateData.reference_images  = body.referenceImages;
+  if (body.buildingId       !== undefined) updateData.building_id       = body.buildingId;
+  if (body.taskTypeId       !== undefined) {
+    updateData.task_type_id = body.taskTypeId;
+    const { data: tt } = await supabaseAdmin
+      .from('task_types')
+      .select('job_type')
+      .eq('id', body.taskTypeId)
+      .single();
+    if (tt?.job_type) updateData.task_job_type = tt.job_type;
+  }
   if (body.repeatType  !== undefined) updateData.repeat_type  = body.repeatType;
   if (body.repeatDays  !== undefined) updateData.repeat_days  = body.repeatDays;
   if (body.repeatDate  !== undefined) updateData.repeat_date  = body.repeatDate;
