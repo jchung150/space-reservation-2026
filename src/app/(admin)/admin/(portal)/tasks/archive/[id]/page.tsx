@@ -45,7 +45,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
 
       {/* 툴바 (인쇄 제외 영역) */}
       <div className="no-print" style={{ padding: '16px 32px', display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderBottom: `1px solid ${C.border}` }}>
-        <button type="button" onClick={() => router.push('/admin/archive')}
+        <button type="button" onClick={() => router.push('/admin/tasks/archive')}
           style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textSec, flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
@@ -69,7 +69,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, lineHeight: 1.3 }}>{report.title}</h1>
           <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 13, opacity: 0.85, flexWrap: 'wrap' }}>
             <span>완료일: {report.completedAt}</span>
-            <span>검토자: {report.reviewer}</span>
+            <span>검토자: {report.isDirectRecord ? '직접 기록' : report.reviewer}</span>
           </div>
         </div>
 
@@ -82,13 +82,13 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
               <tbody>
                 {[
                   { label: '담당자',   value: report.employee },
+                  { label: '직군',    value: report.dept },
                   { label: '건물',    value: report.buildingName ?? '—' },
                   { label: '업무 유형', value: report.taskTypeName ?? '—' },
-                  { label: '직군',    value: report.dept },
                   { label: '우선순위', value: report.priority },
-                  { label: '마감일시', value: report.deadline },
                   { label: '배정자',  value: report.assignedBy },
-                  { label: '배정일시', value: report.assignedAt },
+                  { label: '등록일시', value: report.assignedAt },
+                  { label: '마감일시', value: report.deadline },
                   { label: '완료일시', value: report.completedAt },
                 ].map(row => (
                   <tr key={row.label} style={{ borderBottom: `1px solid ${C.border}` }}>

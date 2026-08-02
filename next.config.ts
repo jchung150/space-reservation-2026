@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
       static:  300,  // 5분
     },
   },
+  async redirects() {
+    return [
+      // 기존 상시 메뉴가 업무 관리 하위 탭으로 이동
+      { source: '/admin/reports',      destination: '/admin/tasks',              permanent: false },
+      { source: '/admin/reports/:id',  destination: '/admin/tasks/:id',          permanent: false },
+      { source: '/admin/archive',      destination: '/admin/tasks/archive',      permanent: false },
+      { source: '/admin/archive/:id',  destination: '/admin/tasks/archive/:id',  permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

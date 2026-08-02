@@ -36,7 +36,9 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const search   = searchParams.get('search')   ?? '';
-  const dept     = searchParams.get('dept')     ?? '';
+  const taskType = searchParams.get('taskType') ?? '';
+  const building = searchParams.get('building') ?? '';
+  const staffQ   = searchParams.get('staff')    ?? '';
   const priority = searchParams.get('priority') ?? '';
 
   /* 아카이브된 업무 — is_archived = true 인 것만 */
@@ -129,9 +131,14 @@ export async function GET(req: Request) {
   if (search) {
     tasks = tasks.filter(t => t.title.includes(search) || t.employee.includes(search));
   }
-  if (dept) {
-    const deptLabel = dept === '시설유지보수' ? '시설' : dept;
-    tasks = tasks.filter(t => t.dept === deptLabel);
+  if (taskType) {
+    tasks = tasks.filter(t => t.taskTypeName === taskType);
+  }
+  if (building) {
+    tasks = tasks.filter(t => t.buildingName === building);
+  }
+  if (staffQ) {
+    tasks = tasks.filter(t => t.employee === staffQ);
   }
   if (priority) {
     const pv = Object.entries(PRIORITY_LABEL).find(([, v]) => v === priority)?.[0];

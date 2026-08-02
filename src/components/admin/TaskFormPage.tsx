@@ -388,10 +388,9 @@ export default function TaskFormPage({
   function validate(): FormErrors {
     const e: FormErrors = {};
     if (!title.trim())  e.title      = '업무명을 입력해주세요';
-    if (!desc.trim())   e.desc       = '업무 설명을 입력해주세요';
     if (!dueDate)       e.dueDate    = '마감일을 선택해주세요';
     if (!taskTypeId)    e.taskTypeId = '업무 유형을 선택해주세요';
-    if (!assigneeId)    e.assigneeId = '배정 직원을 선택해주세요';
+    if (!assigneeId)    e.assigneeId = '담당자를 선택해주세요';
     if (!buildingId)    e.buildingId = '건물을 선택해주세요';
     return e;
   }
@@ -469,7 +468,7 @@ export default function TaskFormPage({
         queryClient.invalidateQueries({ queryKey: ['task-requests'] });
       }
 
-      setTimeout(() => router.push(isDirect ? '/admin/archive' : '/admin/tasks'), 1200);
+      setTimeout(() => router.push(isDirect ? '/admin/tasks/archive' : '/admin/tasks'), 1200);
     } catch {
       setApiError('네트워크 오류가 발생했습니다.');
     } finally {
@@ -537,7 +536,7 @@ export default function TaskFormPage({
 
           {/* 업무 설명 */}
           <div style={{ marginBottom: 16 }}>
-            <Label required>업무 설명</Label>
+            <Label>업무 설명</Label>
             <FocusTextarea
               value={desc}
               onChange={(e) => { setDesc(e.target.value); if (errors.desc) setErrors((prev) => ({ ...prev, desc: undefined })); }}
@@ -667,11 +666,11 @@ export default function TaskFormPage({
           </div>
         </SectionCard>
 
-        {/* ── 배정 직원 ── */}
-        <SectionCard title="배정 직원">
+        {/* ── 담당자 배정 ── */}
+        <SectionCard title="담당자 배정">
 
           <div>
-            <Label required>배정 직원</Label>
+            <Label required>담당자</Label>
             {staffLoading ? (
               <div style={{ fontSize: 13, color: C.textMuted }}>직원 목록 불러오는 중...</div>
             ) : assignableStaff.length === 0 ? (

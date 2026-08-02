@@ -94,8 +94,11 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
     onSuccess: () => {
       setReviewErr('');
       queryClient.invalidateQueries({ queryKey: ['admin-task-detail', id] });
-      setToast('보고가 승인되었습니다.');
-      setTimeout(() => setToast(''), 2000);
+      queryClient.invalidateQueries({ queryKey: ['admin-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['archive'] });
+      setToast('승인되어 아카이브에 저장되었습니다.');
+      setTimeout(() => router.push('/admin/tasks'), 1500);
     },
     onError: () => setReviewErr('승인에 실패했습니다.'),
   });
@@ -108,19 +111,6 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
       }).then(r => { if (!r.ok) throw new Error('반려 실패'); }),
     onSuccess: () => { setShowReject(false); setRejectNote(''); setReviewErr(''); queryClient.invalidateQueries({ queryKey: ['admin-task-detail', id] }); },
     onError: () => setReviewErr('반려에 실패했습니다.'),
-  });
-
-  const archiveMutation = useMutation({
-    mutationFn: (reportId: string) =>
-      fetch(`/api/admin/reports/${reportId}/archive`, { method: 'POST' })
-        .then(r => { if (!r.ok) throw new Error('저장 실패'); }),
-    onSuccess: () => {
-      setReviewErr('');
-      queryClient.invalidateQueries({ queryKey: ['admin-reports'] });
-      setToast('업무가 아카이브에 저장되었습니다.');
-      setTimeout(() => router.push('/admin/tasks'), 1500);
-    },
-    onError: () => setReviewErr('저장에 실패했습니다.'),
   });
 
   /* ── 완료 처리 ── */
@@ -211,7 +201,6 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
   // 가장 최근 보고
   const latestReport   = reports[0] ?? null;
   const isPending      = latestReport?.status === 'pending';
-  const isApproved     = latestReport?.status === 'approved';
   // 반려된 보고 수 (= 이전 이력 수)
   const rejectionCount = reports.filter((r: any) => r.status === 'rejected').length;
   const canReject      = rejectionCount < 2;
@@ -407,8 +396,8 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
             )}
           </div>
 
-          {/* ── 검토 액션 (하단 고정) ── */}
-          {latestReport && (isPending || isApproved) && (
+          {/* ── 검토 액션 (하단 고정) — 검토 대기일 때만 노출 ── */}
+          {latestReport && isPending && (
             <div style={{ padding: '16px 32px 20px 24px', borderTop: `1px solid ${C.border}`, background: '#fff', flexShrink: 0 }}>
               {reviewErr && (
                 <div style={{ marginBottom: 10, padding: '8px 12px', background: C.dangerBg, borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 600 }}>{reviewErr}</div>
@@ -459,15 +448,6 @@ export default function AdminTaskDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               )}
 
-              {/* 승인 완료 — 저장하기 */}
-              {isApproved && (
-                <button type="button"
-                  onClick={() => { setReviewErr(''); archiveMutation.mutate(latestReport.id); }}
-                  disabled={archiveMutation.isPending}
-                  style={{ width: '100%', padding: '12px', borderRadius: 10, border: `1.5px solid ${C.success}`, background: 'transparent', color: C.success, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {archiveMutation.isPending ? '저장 중...' : '저장하기 →'}
-                </button>
-              )}
             </div>
           )}
         </div>

@@ -213,10 +213,10 @@ export async function PATCH(
     return NextResponse.json({ error: '보고 처리에 실패했습니다.' }, { status: 500 });
   }
 
-  // 2. 연관 업무 상태 동기화
+  // 2. 연관 업무 상태 동기화 — 승인 시 자동 아카이브
   const taskUpdate: Record<string, unknown> =
     action === 'approve'
-      ? { status: 'done' }
+      ? { status: 'done', is_archived: true }
       : { status: 'rework', rework_reason: rejectReason };
 
   await supabaseAdmin

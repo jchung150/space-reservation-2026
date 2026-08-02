@@ -146,7 +146,7 @@ export default function AdminLoginPage() {
         setLoginError(true);
         setShakeKey((k) => k + 1);
       } else {
-        window.location.href = '/admin/dashboard';
+        window.location.href = '/admin/tasks';
       }
     } catch {
       setErrorMsg('네트워크 오류가 발생했습니다.');

@@ -23,15 +23,13 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const search   = searchParams.get('search')   ?? '';
-  const dept     = searchParams.get('dept')     ?? '';   // 보안|청소|시설유지보수
+  const taskType = searchParams.get('taskType') ?? '';   // 업무 유형명
+  const building = searchParams.get('building') ?? '';   // 건물명
   const priority = searchParams.get('priority') ?? '';
   const status   = searchParams.get('status')   ?? '';
   const page     = parseInt(searchParams.get('page') ?? '1', 10);
   const limit    = parseInt(searchParams.get('limit') ?? '10', 10);
-
-  const DEPT_MAP: Record<string, string> = {
-    '보안': 'security', '청소': 'cleaning', '시설유지보수': 'maintenance',
-  };
+  const sort     = searchParams.get('sort')     ?? 'created_desc';
 
   let query = supabaseAdmin
     .from('tasks')
@@ -47,7 +45,12 @@ export async function GET(req: Request) {
   if (priority && PRIORITY_LABEL[priority]) query = query.eq('priority', PRIORITY_LABEL[priority]);
   if (status  && STATUS_LABEL[status])      query = query.eq('status',   STATUS_LABEL[status]);
 
-  query = query.order('deadline', { ascending: true });
+  if (sort === 'deadline_asc') {
+    query = query.order('deadline', { ascending: true });
+  } else {
+    // 기본값: 등록일 최신순
+    query = query.order('created_at', { ascending: false });
+  }
 
   const { data, error, count } = await query;
 
@@ -58,15 +61,17 @@ export async function GET(req: Request) {
 
   let tasks = data.map(mapAdminTask);
 
-  // 검색 · 직군 필터 (post-process)
+  // 검색 · 업무 유형 필터 (post-process)
   if (search) {
     tasks = tasks.filter(t =>
       t.title.includes(search) || t.employeeName.includes(search)
     );
   }
-  if (dept && DEPT_MAP[dept]) {
-    const jobType = DEPT_MAP[dept];
-    tasks = tasks.filter(t => t.taskJobType === jobType);
+  if (taskType) {
+    tasks = tasks.filter(t => t.taskTypeName === taskType);
+  }
+  if (building) {
+    tasks = tasks.filter(t => t.buildingName === building);
   }
 
   // 클라이언트 요청 시 전체 반환 (list page에서 클라이언트 페이지네이션 사용)

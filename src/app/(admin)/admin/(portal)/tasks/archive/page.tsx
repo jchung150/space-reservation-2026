@@ -254,9 +254,39 @@ export default function ArchivePage() {
   const [period,     setPeriod]     = useState('직접 입력');
   const [dateFrom,   setDateFrom]   = useState('');
   const [dateTo,     setDateTo]     = useState('');
-  const [deptFilter, setDeptFilter] = useState('전체');
-  const [prioFilter, setPrioFilter] = useState('전체');
+  const [typeFilter, setTypeFilter] = useState('전체');
+  const [bldgFilter, setBldgFilter] = useState('전체');
+  const [staffFilter, setStaffFilter] = useState('전체');
   const [page,       setPage]       = useState(1);
+
+  /* 마스터 데이터 (필터 옵션용) */
+  const { data: taskTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['task-types-active'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/task-types?active=true');
+      if (!res.ok) throw new Error('fetch error');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const { data: buildings = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['buildings-active'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/buildings?active=true');
+      if (!res.ok) throw new Error('fetch error');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const { data: staffOptions = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['staff-active'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/staff');
+      if (!res.ok) throw new Error('fetch error');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const router = useRouter();
   const [deleteError,  setDeleteError]  = useState('');
@@ -282,11 +312,12 @@ export default function ArchivePage() {
 
   /* ── API ── */
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['archive', deptFilter, prioFilter],
+    queryKey: ['archive', typeFilter, bldgFilter, staffFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (deptFilter !== '전체') params.set('dept',     deptFilter);
-      if (prioFilter !== '전체') params.set('priority', prioFilter);
+      if (typeFilter !== '전체') params.set('taskType', typeFilter);
+      if (bldgFilter !== '전체') params.set('building', bldgFilter);
+      if (staffFilter !== '전체') params.set('staff', staffFilter);
       const res = await fetch(`/api/admin/archive?${params}`);
       if (!res.ok) throw new Error('fetch error');
       return res.json();
@@ -364,13 +395,7 @@ export default function ArchivePage() {
   }, [safePage, totalPages]);
 
   return (
-    <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', minWidth: 0 }}>
-
-      {/* 헤더 */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: C.textPri }}>업무 아카이브</h1>
-        <p style={{ fontSize: 13, color: C.textMuted, marginTop: 3 }}>완료 확정된 업무 이력을 조회하세요</p>
-      </div>
+    <div>
 
       {/* 필터 바 */}
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '14px 16px', marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
@@ -391,7 +416,7 @@ export default function ArchivePage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, letterSpacing: '0.04em', paddingLeft: 2 }}>기간</span>
           <div style={{ display: 'flex', gap: 0, background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3 }}>
-            {(['이번 주', '이번 달', '직접 입력'] as const).map(p => (
+            {(['직접 입력', '이번 주', '이번 달'] as const).map(p => (
               <button key={p} type="button" onClick={() => setPeriod(p)}
                 style={{ padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', background: period === p ? C.primary : 'transparent', color: period === p ? '#fff' : C.textSec, transition: '150ms ease' }}>
                 {p}
@@ -399,8 +424,9 @@ export default function ArchivePage() {
             ))}
           </div>
         </div>
-        <FilterSelect label="직군"   value={deptFilter} onChange={v => { setDeptFilter(v); setPage(1); }} options={['전체', '보안', '청소', '시설유지보수']} minWidth={130} />
-        <FilterSelect label="우선순위" value={prioFilter} onChange={v => { setPrioFilter(v); setPage(1); }} options={['전체', '높음', '보통', '낮음']} minWidth={110} />
+        <FilterSelect label="담당자"   value={staffFilter} onChange={v => { setStaffFilter(v); setPage(1); }} options={['전체', ...staffOptions.map(s => s.name)]} minWidth={130} />
+        <FilterSelect label="건물"    value={bldgFilter} onChange={v => { setBldgFilter(v); setPage(1); }} options={['전체', ...buildings.map(b => b.name)]} minWidth={130} />
+        <FilterSelect label="업무 유형" value={typeFilter} onChange={v => { setTypeFilter(v); setPage(1); }} options={['전체', ...taskTypes.map(t => t.name)]} minWidth={140} />
         <button type="button"
           onClick={() => {
             const PRIO: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
@@ -462,34 +488,42 @@ export default function ArchivePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: C.archive, borderBottom: `1px solid ${C.border}` }}>
-                {['업무명', '담당자', '직군', '우선순위', '완료일시', '검토자', '삭제'].map(h => (
+                {['업무명', '담당자', '건물', '업무 유형', '우선순위', '완료일시', '배정자', '검토자', '삭제'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', fontSize: 11, fontWeight: 700, color: C.textMuted, textAlign: 'left', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pagedItems.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: C.textMuted, fontSize: 14 }}>완료된 업무가 없습니다</td></tr>
+                <tr><td colSpan={10} style={{ padding: '48px 16px', textAlign: 'center', color: C.textMuted, fontSize: 14 }}>완료된 업무가 없습니다</td></tr>
               ) : pagedItems.map((item: any) => {
                 const p      = PRIORITY_CONFIG[item.priority as 'high' | 'medium' | 'low'] ?? PRIORITY_CONFIG.medium;
-                const deptClr = DEPT_COLOR[item.dept] ?? C.textMuted;
                 return (
                   <tr key={item.id}
-                    onClick={() => router.push(`/admin/archive/${item.id}`)}
+                    onClick={() => router.push(`/admin/tasks/archive/${item.id}`)}
                     onMouseEnter={e => (e.currentTarget.style.background = C.pageBg)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     style={{ borderTop: `1px solid ${C.border}`, transition: '120ms', cursor: 'pointer' }}>
                     <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.textPri }}>{item.title}</td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{item.employee}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: deptClr, background: `${deptClr}18`, borderRadius: 6, padding: '3px 8px' }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: deptClr, flexShrink: 0 }} />{item.dept}
-                      </span>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{item.buildingName ?? '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
+                      {item.taskTypeName ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: C.textPri, background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '3px 8px' }}>
+                          {item.taskTypeName}
+                        </span>
+                      ) : '—'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '3px 8px' }}>{p.label}</span>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec, fontVariantNumeric: 'tabular-nums' }}>{item.completedAt}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 18, height: 18, borderRadius: '50%', background: C.primaryBg, color: C.primary, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>관</span>
+                        {item.assignedBy ?? '—'}
+                      </span>
+                    </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
                       {!item.hasApprovedReport ? (
                         <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: C.primaryBg, borderRadius: 6, padding: '3px 8px' }}>직접 기록</span>

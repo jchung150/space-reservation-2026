@@ -13,30 +13,34 @@ const C = {
 };
 
 const TABS = [
-  { href: '/admin/master/staff',      label: '직원' },
-  { href: '/admin/master/buildings',  label: '건물' },
-  { href: '/admin/master/task-types', label: '업무 유형' },
+  { href: '/admin/tasks',         label: '업무 목록' },
+  { href: '/admin/tasks/archive', label: '아카이브' },
 ] as const;
 
-/* 하위 페이지가 자신의 액션 버튼을 헤더에 등록 */
-export const MasterHeaderContext = createContext<{
+/* 하위 페이지가 헤더 우측에 자기 액션 버튼을 등록 */
+export const TasksHeaderContext = createContext<{
   setAction: (node: ReactNode) => void;
 }>({ setAction: () => {} });
 
-export default function MasterLayout({ children }: { children: React.ReactNode }) {
+export default function TasksLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [action, setAction] = useState<ReactNode>(null);
 
+  /* 탭 노출 대상: 목록 페이지들만. 상세/생성/편집은 그대로 렌더 */
+  const isListView =
+    pathname === '/admin/tasks' ||
+    pathname === '/admin/tasks/archive';
+
+  if (!isListView) return <>{children}</>;
+
   return (
-    <MasterHeaderContext.Provider value={{ setAction }}>
+    <TasksHeaderContext.Provider value={{ setAction }}>
       <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', minWidth: 0 }}>
-        {/* 페이지 헤더 */}
+        {/* 헤더 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: C.textPri }}>기준 정보 관리</h1>
-            <p style={{ fontSize: 13, color: C.textMuted, marginTop: 3 }}>
-              업무 배정에 사용되는 마스터 데이터를 관리하세요
-            </p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: C.textPri }}>업무 관리</h1>
+            <p style={{ fontSize: 13, color: C.textMuted, marginTop: 3 }}>업무 목록과 이력을 관리하세요</p>
           </div>
           <div>{action}</div>
         </div>
@@ -44,7 +48,7 @@ export default function MasterLayout({ children }: { children: React.ReactNode }
         {/* 탭 */}
         <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`, marginBottom: 20 }}>
           {TABS.map(t => {
-            const isActive = pathname === t.href || pathname.startsWith(t.href + '/');
+            const isActive = pathname === t.href;
             return (
               <Link
                 key={t.href}
@@ -68,6 +72,6 @@ export default function MasterLayout({ children }: { children: React.ReactNode }
 
         {children}
       </div>
-    </MasterHeaderContext.Provider>
+    </TasksHeaderContext.Provider>
   );
 }

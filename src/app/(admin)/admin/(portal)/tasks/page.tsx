@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import type { AdminTask, Priority, TaskStatus } from '@/types';
 import { PRIORITY_CONFIG } from '@/constants/task-config';
 import { getAdminDueLabel } from '@/lib/date';
+import { TasksHeaderContext } from './layout';
 
 /* ── 색상 ────────────────────────────────────────────────────── */
 const C = {
@@ -27,17 +28,13 @@ const STATUS_CFG: Record<TaskStatus, { label: string; color: string; bg: string 
   rework:         { label: '재작업',     color: C.danger,   bg: C.dangerBg  },
 };
 
-const DEPT_COLOR: Record<string, string> = {
-  보안: 'oklch(65% 0.16 65)', 청소: 'oklch(62% 0.15 160)', 시설: 'oklch(55% 0.14 195)',
-};
-
 const PER_PAGE = 10;
 
 /* ── 서브컴포넌트 ────────────────────────────────────────────── */
-function FilterSelect({ label, value, onChange, options, minWidth = 120 }: {
-  label: string; value: string; onChange: (v: string) => void; options: string[]; minWidth?: number;
+function FilterSelect({ label, value, onChange, options, minWidth = 120, defaultValue = '전체' }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; minWidth?: number; defaultValue?: string;
 }) {
-  const isActive = value !== '전체';
+  const isActive = value !== defaultValue;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? C.primary : C.textMuted, letterSpacing: '0.04em', paddingLeft: 2 }}>{label}</span>
@@ -70,22 +67,47 @@ export default function AdminTasksPage() {
   const router      = useRouter();
   const [search,     setSearch]     = useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const [deptFilter, setDeptFilter] = useState('전체');
+  const [typeFilter, setTypeFilter] = useState('전체');
+  const [bldgFilter, setBldgFilter] = useState('전체');
   const [prioFilter, setPrioFilter] = useState('전체');
   const [statFilter, setStatFilter] = useState('전체');
+  const [sortLabel,  setSortLabel]  = useState('등록일 (최신 순)');
+
+  /* 마스터 데이터 (필터 옵션용) */
+  const { data: taskTypes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['task-types-active'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/task-types?active=true');
+      if (!res.ok) throw new Error('fetch error');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const { data: buildings = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['buildings-active'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/buildings?active=true');
+      if (!res.ok) throw new Error('fetch error');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
   const [page,       setPage]       = useState(1);
   const [selected,   setSelected]   = useState<Set<string>>(new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   /* ── 데이터 패치 ── */
+  const sortParam = sortLabel === '마감일 (임박 순)' ? 'deadline_asc' : 'created_desc';
   const { data, isLoading, isError } = useQuery<{ tasks: AdminTask[]; total: number }>({
-    queryKey: ['admin-tasks', deptFilter, prioFilter, statFilter],
+    queryKey: ['admin-tasks', typeFilter, bldgFilter, prioFilter, statFilter, sortParam],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (deptFilter !== '전체') params.set('dept',     deptFilter);
+      if (typeFilter !== '전체') params.set('taskType', typeFilter);
+      if (bldgFilter !== '전체') params.set('building', bldgFilter);
       if (prioFilter !== '전체') params.set('priority', prioFilter);
       if (statFilter !== '전체') params.set('status',   statFilter);
+      params.set('sort', sortParam);
       const res = await fetch(`/api/admin/tasks?${params}`);
       if (!res.ok) throw new Error('fetch error');
       return res.json();
@@ -144,20 +166,21 @@ export default function AdminTasksPage() {
     setSelected(new Set());
   }
 
-  return (
-    <div className="admin-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', minWidth: 0 }}>
-      {/* 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.textPri }}>업무 관리</h1>
-          <p style={{ fontSize: 13, color: C.textMuted, marginTop: 3 }}>전체 업무를 조회하고 관리하세요</p>
-        </div>
-        <Link href="/admin/tasks/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', boxShadow: '0 2px 8px oklch(55% 0.14 195 / 30%)' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          새 업무 생성
-        </Link>
-      </div>
+  /* 헤더 우측에 "새 업무 생성" 버튼 등록 */
+  const { setAction } = useContext(TasksHeaderContext);
+  useEffect(() => {
+    setAction(
+      <Link href="/admin/tasks/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', boxShadow: '0 2px 8px oklch(55% 0.14 195 / 30%)' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        새 업무 생성
+      </Link>
+    );
+    return () => setAction(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  return (
+    <div>
       {/* 필터 바 */}
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '14px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 200px', minWidth: 200 }}>
@@ -177,8 +200,9 @@ export default function AdminTasksPage() {
           </div>
         </div>
         <FilterSelect label="상태"   value={statFilter} onChange={v => { setStatFilter(v); setPage(1); }} options={['전체','미완료','검토 대기','완료','재작업']} minWidth={140} />
-        <FilterSelect label="우선순위" value={prioFilter} onChange={v => { setPrioFilter(v); setPage(1); }} options={['전체','높음','보통','낮음']} minWidth={110} />
-        <FilterSelect label="직군"   value={deptFilter} onChange={v => { setDeptFilter(v); setPage(1); }} options={['전체','보안','청소','시설유지보수']} minWidth={130} />
+        <FilterSelect label="건물"    value={bldgFilter} onChange={v => { setBldgFilter(v); setPage(1); }} options={['전체', ...buildings.map(b => b.name)]} minWidth={130} />
+        <FilterSelect label="업무 유형" value={typeFilter} onChange={v => { setTypeFilter(v); setPage(1); }} options={['전체', ...taskTypes.map(t => t.name)]} minWidth={140} />
+        <FilterSelect label="정렬"   value={sortLabel}  onChange={v => { setSortLabel(v);  setPage(1); }} options={['등록일 (최신 순)','마감일 (임박 순)']} minWidth={160} defaultValue="등록일 (최신 순)" />
         {selected.size > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', padding: '4px 12px', background: C.primaryBg, borderRadius: 8, border: '1px solid oklch(80% 0.08 195)' }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: C.primary }}>{selected.size}건 선택됨</span>
@@ -207,14 +231,14 @@ export default function AdminTasksPage() {
                     {someChecked && !allChecked && <div style={{ width: 8, height: 2, background: 'white', borderRadius: 1 }} />}
                   </div>
                 </th>
-                {['업무명','담당자','직군','우선순위','마감일시','상태','반복','수정/삭제'].map(h => (
+                {['업무명','담당자','건물','업무 유형','우선순위','마감일시','상태','반복','수정/삭제'].map(h => (
                   <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: C.textMuted, textAlign: 'left', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pagedTasks.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: C.textMuted, fontSize: 14 }}>조건에 맞는 업무가 없습니다</td></tr>
+                <tr><td colSpan={10} style={{ padding: '48px 16px', textAlign: 'center', color: C.textMuted, fontSize: 14 }}>조건에 맞는 업무가 없습니다</td></tr>
               ) : pagedTasks.map(task => {
                 const p        = PRIORITY_CONFIG[task.priority];
                 const s        = STATUS_CFG[task.status];
@@ -223,7 +247,6 @@ export default function AdminTasksPage() {
                 const isOverdue = new Date(task.deadline) < new Date() && task.status !== 'done';
                 const isSel    = selected.has(task.id);
                 const isHov    = hoveredRow === task.id && !isSel;
-                const deptClr  = DEPT_COLOR[task.dept] ?? C.textMuted;
                 const isDel    = deletingId === task.id;
                 return (
                   <tr key={task.id}
@@ -239,10 +262,13 @@ export default function AdminTasksPage() {
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.textPri }}>{task.title}</td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{task.employeeName}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: deptClr, background: `${deptClr}18`, borderRadius: 6, padding: '3px 8px' }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: deptClr, flexShrink: 0 }} />{task.dept}
-                      </span>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>{task.buildingName ?? '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: C.textSec }}>
+                      {task.taskTypeName ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: C.textPri, background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '3px 8px' }}>
+                          {task.taskTypeName}
+                        </span>
+                      ) : '—'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: p.color, background: p.bgColor, borderRadius: 6, padding: '3px 8px' }}>{p.label}</span>

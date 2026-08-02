@@ -4,12 +4,31 @@ export type JobType    = 'security' | 'cleaning' | 'maintenance';
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type AdminRole  = 'super' | 'admin';
 
+export const BUILDING_TYPE_OPTIONS = [
+  '오피스',
+  '리테일/상업시설',
+  '주거시설',
+  '산업·물류시설',
+  '호텔·숙박시설',
+  '의료시설',
+  '교육시설',
+  '복합시설',
+  '특수시설',
+] as const;
+export type BuildingType = typeof BUILDING_TYPE_OPTIONS[number];
+
 export interface Building {
-  id:        string;
-  name:      string;
-  sortOrder: number;
-  isActive:  boolean;
-  createdAt: string;
+  id:            string;
+  name:          string;
+  buildingTypes: BuildingType[];
+  address:       string | null;
+  builtAt:       string | null;   // ISO date (YYYY-MM-DD)
+  approvedAt:    string | null;
+  thumbnailPath: string | null;
+  thumbnailUrl:  string | null;   // 서명 URL (조회 시 API가 채움)
+  sortOrder:     number;
+  isActive:      boolean;
+  createdAt:     string;
 }
 
 export interface TaskType {

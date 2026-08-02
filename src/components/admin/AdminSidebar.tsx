@@ -13,31 +13,11 @@ const SIDEBAR_DIV  = '1px solid oklch(24% 0.02 250)';
 const PRIMARY      = 'oklch(55% 0.14 195)';
 
 /* ── 아이콘 ──────────────────────────────────────────────────────── */
-const IconDashboard = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-  </svg>
-);
 const IconTasks = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
     <rect x="9" y="3" width="6" height="4" rx="2"/>
     <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
-  </svg>
-);
-const IconReports = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-    <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/>
-  </svg>
-);
-const IconStaff = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
   </svg>
 );
 const IconBuildings = () => (
@@ -47,13 +27,6 @@ const IconBuildings = () => (
     <line x1="9" y1="10" x2="9" y2="10"/><line x1="15" y1="10" x2="15" y2="10"/>
     <line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="14" x2="15" y2="14"/>
     <path d="M10 22v-4h4v4"/>
-  </svg>
-);
-const IconArchive = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="21 8 21 21 3 21 3 8"/>
-    <rect x="1" y="3" width="22" height="5"/>
-    <line x1="10" y1="12" x2="14" y2="12"/>
   </svg>
 );
 const IconLogout = () => (
@@ -66,12 +39,8 @@ const IconLogout = () => (
 
 /* ── 내비게이션 아이템 정의 ────────────────────────────────────── */
 const NAV_ITEMS = [
-  { key: 'dashboard', label: '대시보드',      href: '/admin/dashboard', icon: <IconDashboard /> },
   { key: 'tasks',     label: '업무 관리',      href: '/admin/tasks',     icon: <IconTasks /> },
-  { key: 'reports',   label: '완료 보고 검토', href: '/admin/reports',   icon: <IconReports /> },
-  { key: 'staff',     label: '인력 관리',      href: '/admin/staff',     icon: <IconStaff /> },
   { key: 'master',    label: '기준 정보 관리', href: '/admin/master',    icon: <IconBuildings /> },
-  { key: 'archive',   label: '아카이브',       href: '/admin/archive',   icon: <IconArchive /> },
 ] as const;
 
 /* ── 사이드바 ────────────────────────────────────────────────────── */
@@ -79,17 +48,15 @@ export default function AdminSidebar() {
   const pathname    = usePathname();
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
-  /* 검토 대기 건수 — 30초 폴링 */
-  const { data: pendingCount = 0 } = useQuery<number>({
-    queryKey: ['pending-report-count'],
+  /* 활성 건물 목록 (사이드바 하단 그룹) */
+  const { data: buildings = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['buildings-active'],
     queryFn: async () => {
-      const res  = await fetch('/api/admin/reports?status=pending');
-      if (!res.ok) return 0;
-      const list = await res.json();
-      return Array.isArray(list) ? list.length : 0;
+      const res = await fetch('/api/admin/buildings?active=true');
+      if (!res.ok) return [];
+      return res.json();
     },
-    staleTime: 0,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
 
@@ -133,6 +100,7 @@ export default function AdminSidebar() {
         style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}
       >
         {NAV_ITEMS.map((item) => {
+          // 업무 관리는 정확 매칭 + 하위(reports, archive, [id])만. 건물 상세는 별도.
           const isActive  = pathname === item.href || pathname.startsWith(item.href + '/');
           const isHovered = hoveredKey === item.key;
           return (
@@ -159,23 +127,51 @@ export default function AdminSidebar() {
             >
               {item.icon}
               <span style={{ flex: 1 }}>{item.label}</span>
-              {item.key === 'reports' && pendingCount > 0 && (
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  background: isActive ? 'rgba(255,255,255,0.25)' : 'oklch(62% 0.16 25)',
-                  color: '#fff',
-                  borderRadius: 10,
-                  padding: '1px 6px',
-                  minWidth: 16,
-                  textAlign: 'center',
-                }}>
-                  {pendingCount}
-                </span>
-              )}
             </Link>
           );
         })}
+
+        {/* ── 건물 그룹 ── */}
+        {buildings.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ padding: '4px 12px 6px', fontSize: 10, fontWeight: 700, color: 'oklch(45% 0.02 250)', letterSpacing: '0.08em' }}>
+              건물
+            </div>
+            {buildings.map(b => {
+              const href = `/admin/buildings/${b.id}`;
+              const isActive  = pathname === href || pathname.startsWith(href + '/');
+              const isHovered = hoveredKey === `bldg-${b.id}`;
+              return (
+                <Link
+                  key={b.id}
+                  href={href}
+                  onMouseEnter={() => setHoveredKey(`bldg-${b.id}`)}
+                  onMouseLeave={() => setHoveredKey(null)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 12px 8px 28px',
+                    borderRadius: 8,
+                    marginBottom: 2,
+                    background: isActive ? PRIMARY : isHovered ? SIDEBAR_HOV : 'transparent',
+                    color: isActive || isHovered ? '#fff' : 'oklch(60% 0.02 250)',
+                    fontSize: 13,
+                    fontWeight: isActive ? 600 : 400,
+                    textDecoration: 'none',
+                    transition: '150ms ease',
+                    minHeight: 34,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {b.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* 관리자 정보 */}

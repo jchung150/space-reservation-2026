@@ -56,7 +56,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/tasks', req.url));
   }
   if (pathname === '/admin/login' && user?.role === 'admin') {
-    return NextResponse.redirect(new URL('/admin/dashboard', req.url));
+    return NextResponse.redirect(new URL('/admin/tasks', req.url));
   }
 
   return NextResponse.next();
