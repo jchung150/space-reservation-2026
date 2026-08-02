@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MasterHeaderContext } from '../layout';
@@ -58,11 +58,13 @@ export default function TaskTypesPage() {
     setShowForm(true);
   }
 
-  /* 헤더 우측에 "유형 추가" 버튼 등록 */
+  /* 헤더 우측에 "유형 추가" 버튼 등록 (ref로 최신 openCreate 참조) */
   const { setAction } = useContext(MasterHeaderContext);
+  const openCreateRef = useRef(openCreate);
+  openCreateRef.current = openCreate;
   useEffect(() => {
     setAction(
-      <button type="button" onClick={openCreate}
+      <button type="button" onClick={() => openCreateRef.current()}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px oklch(55% 0.14 195 / 30%)' }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         새 유형 추가
@@ -70,7 +72,7 @@ export default function TaskTypesPage() {
     );
     return () => setAction(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [types]);
+  }, []);
 
   function openEdit(t: TaskTypeRow) {
     setEditing(t);

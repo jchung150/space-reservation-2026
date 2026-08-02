@@ -127,11 +127,13 @@ export default function BuildingsPage() {
     }
   }
 
-  /* 헤더 우측에 "새 건물 추가" 버튼 등록 */
+  /* 헤더 우측에 "새 건물 추가" 버튼 등록 (ref로 최신 openCreate 참조 → 재등록 없이 안정 유지) */
   const { setAction } = useContext(MasterHeaderContext);
+  const openCreateRef = useRef(openCreate);
+  openCreateRef.current = openCreate;
   useEffect(() => {
     setAction(
-      <button type="button" onClick={openCreate}
+      <button type="button" onClick={() => openCreateRef.current()}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px oklch(55% 0.14 195 / 30%)' }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         새 건물 추가
@@ -139,7 +141,7 @@ export default function BuildingsPage() {
     );
     return () => setAction(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildings]);
+  }, []);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
