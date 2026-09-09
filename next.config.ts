@@ -22,3 +22,9 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Cloudflare Workers 바인딩을 `next dev`에서도 사용할 수 있게 초기화한다.
+// 프로덕션 빌드에는 영향을 주지 않으므로 동적 import로 로드한다.
+import('@opennextjs/cloudflare')
+  .then(m => m.initOpenNextCloudflareForDev())
+  .catch(() => {});

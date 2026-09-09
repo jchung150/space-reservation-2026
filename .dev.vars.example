@@ -1,0 +1,12 @@
+# wrangler 로컬 프리뷰(npm run preview)용 환경 변수 템플릿
+# 이 파일을 .dev.vars 로 복사한 뒤 .env.local 과 동일한 값을 채울 것.
+#   cp .dev.vars.example .dev.vars
+# 운영 환경 값은 이 파일이 아니라 Cloudflare 시크릿으로 등록한다:
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+
+NEXTJS_ENV=development
+
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+JWT_SECRET=
