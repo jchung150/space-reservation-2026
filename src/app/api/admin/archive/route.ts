@@ -28,6 +28,30 @@ function durationHours(from: string, to: string): string {
   return `${Math.max(0.1, Math.round(h * 10) / 10).toFixed(1)}시간`;
 }
 
+/**
+ * 여러 경로의 서명 URL을 한 번의 요청으로 발급한다.
+ * 경로마다 createSignedUrl을 호출하면 업무 수에 비례해 외부 호출이 늘어나므로
+ * (아카이브 목록 기준 수십 회) 버킷당 1회로 묶는다.
+ */
+async function signPaths(bucket: string, paths: string[]): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  const uniq = [...new Set(paths)];
+  if (uniq.length === 0) return urls;
+
+  const { data, error } = await supabaseAdmin.storage
+    .from(bucket)
+    .createSignedUrls(uniq, 3600);
+
+  if (error) {
+    console.error(`[GET /api/admin/archive] ${bucket} 서명 URL 발급 실패`, error);
+    return urls;
+  }
+  for (const row of data ?? []) {
+    if (row.path && row.signedUrl) urls.set(row.path, row.signedUrl);
+  }
+  return urls;
+}
+
 export async function GET(req: Request) {
   const session = await getSession();
   if (!session || session.role !== 'admin') {
@@ -64,8 +88,26 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  /* 서명 URL 일괄 발급 — 버킷당 1회 요청 */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let tasks = await Promise.all((raw ?? []).map(async (t: any) => {
+  const rows = (raw ?? []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const approvedOf = (t: any) => (t.reports ?? []).find((r: any) => r.reviewed_at);
+
+  const [photoUrls, refUrls] = await Promise.all([
+    signPaths(
+      'report-photos',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rows.flatMap(t => ((approvedOf(t)?.report_photos ?? []) as any[]).map(p => p.storage_path)),
+    ),
+    signPaths(
+      'task-references',
+      rows.flatMap(t => (t.reference_images ?? []) as string[]),
+    ),
+  ]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let tasks = rows.map((t: any) => {
     const jobTypes: string[]  = t.staff?.job_types ?? [];
     const depts               = jobTypes.map((jt: string) => DEPT_MAP[jt] ?? jt);
     // 배정 직군: 업무 생성 시 선택한 직군(task_job_type) 우선, 없으면 직원 대표 직군
@@ -79,21 +121,14 @@ export async function GET(req: Request) {
     // 사진: 승인된 보고의 첨부 사진 + 서명 URL (1시간 유효)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rawPhotos = (approvedReport?.report_photos ?? []) as any[];
-    const photos = await Promise.all(
-      rawPhotos
-        .sort((a: any, b: any) => a.sort_order - b.sort_order)
-        .map(async (p: any) => {
-          const { data: signed } = await supabaseAdmin.storage
-            .from('report-photos')
-            .createSignedUrl(p.storage_path, 3600);
-          return {
-            id:          p.id,
-            storagePath: p.storage_path,
-            fileName:    p.file_name,
-            url:         signed?.signedUrl ?? null,
-          };
-        })
-    );
+    const photos = rawPhotos
+      .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      .map((p: any) => ({
+        id:          p.id,
+        storagePath: p.storage_path,
+        fileName:    p.file_name,
+        url:         photoUrls.get(p.storage_path) ?? null,
+      }));
 
     return {
       id:               t.id,
@@ -115,17 +150,12 @@ export async function GET(req: Request) {
       memo:             approvedReport?.memo ?? '',
       photoCount:       photos.length,
       photos,
-      referenceImages: await Promise.all(
-        ((t.reference_images ?? []) as string[]).map(async (path: string) => {
-          const { data: signed } = await supabaseAdmin.storage
-            .from('task-references')
-            .createSignedUrl(path, 3600);
-          return signed?.signedUrl ?? null;
-        })
-      ).then(urls => urls.filter(Boolean) as string[]),
+      referenceImages: ((t.reference_images ?? []) as string[])
+        .map((path: string) => refUrls.get(path) ?? null)
+        .filter(Boolean) as string[],
       hasApprovedReport: !!approvedReport,
     };
-  }));
+  });
 
   /* 클라이언트 검색·필터 (post-process) */
   if (search) {

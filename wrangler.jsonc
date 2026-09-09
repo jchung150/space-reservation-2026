@@ -7,6 +7,8 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	// 버전마다 개별 공개 URL이 생기지 않도록 미리보기 URL 비활성화
+	"preview_urls": false,
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
