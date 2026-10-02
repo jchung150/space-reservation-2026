@@ -25,7 +25,9 @@
 - 주요 행동 흐름: 로그인 → 업무 목록 확인 → 업무 수행 → 사진+메모로 완료 보고 제출
 
 ### 관리자 (어드민 사용자)
-- 복수 관리자 지원, **모든 관리자 동일 권한** (슈퍼어드민 구분 없음)
+- 복수 관리자 지원. 관리자 역할은 `super` / `admin` 두 가지 (`admins.role`, `src/lib/auth.ts`의 `AdminRole`)
+  - 업무·보고·인력 관련 기능은 모든 관리자가 동일하게 사용
+  - **다른 관리자 계정의 수정·삭제만 슈퍼 관리자 전용** (일반 관리자는 본인 계정만 수정 가능)
 - 주요 행동 흐름: 업무 생성/배정 → 실시간 현황 모니터링 → 완료 보고 검토(승인/반려)
 
 ---
@@ -37,7 +39,7 @@
 | 직원 대시보드 | 우선순위 정렬 업무 목록 뷰 + 주간/월간 캘린더 뷰 |
 | 완료 보고 | 사진(최대 5장) + 메모(10~500자) 제출 → 관리자 승인/반려 |
 | 관리자 포털 | 업무 생성·배정(반복 설정 포함), 실시간 보고 검토, 인력 관리, 아카이브 |
-| 실시간 갱신 | **SSE(Server-Sent Events)** 방식 — 브라우저 열어둔 동안 자동 갱신, 푸시 알림 없음 |
+| 실시간 갱신 | **TanStack Query 폴링**(`refetchInterval`) 방식 — 브라우저 열어둔 동안 자동 갱신, 푸시 알림 없음 |
 | 사진 저장 | 클라우드 스토리지, 보존 기간 제한 없음 (수동 삭제 시까지 영구 보관) |
 
 ### 업무 우선순위 및 상태
@@ -131,25 +133,30 @@ transition: 150ms ease;
 
 | 화면 ID | 화면명 | 디자인 파일 |
 |---|---|---|
-| SCR-E01 | 로그인 | `designs/SCR-E01-login.html` |
-| SCR-E02 | 업무 목록 (홈) | `designs/SCR-E02-task-list.html` |
-| SCR-E03 | 캘린더 뷰 | `designs/SCR-E03-calendar.html` |
-| SCR-E04 | 업무 상세 | `designs/SCR-E04-task-detail.html` |
-| SCR-E05 | 완료 보고 입력 | `designs/SCR-E05-report-input.html` |
-| SCR-E06 | 제출 확인 | `designs/SCR-E06-report-confirm.html` |
+| SCR-E01 | 로그인 | `designs/SCR-E01 로그인.html` |
+| SCR-E02 | 업무 목록 (홈) | `designs/SCR-E02 업무목록.html` |
+| SCR-E03 | 캘린더 뷰 | `designs/SCR-E03 캘린더뷰.html` |
+| SCR-E04 | 업무 상세 | `designs/SCR-E04 업무상세.html` |
+| SCR-E05 | 완료 보고 입력 | `designs/SCR-E05 완료보고.html` |
+| SCR-E06 | 제출 확인 | `designs/SCR-E06 제출확인.html` |
+| SCR-E07 | 프로필 | `designs/SCR-E07 프로필.html` |
+| SCR-E08 | 업무 요청 등록 | `designs/SCR-E08 업무요청등록.html` |
 
 ### 관리자 화면 (데스크탑)
 
 | 화면 ID | 화면명 | 디자인 파일 |
 |---|---|---|
-| SCR-A01 | 관리자 로그인 | `designs/SCR-A01-admin-login.html` |
-| SCR-A02 | 메인 대시보드 | `designs/SCR-A02-dashboard.html` |
-| SCR-A03 | 업무 목록 관리 | `designs/SCR-A03-task-management.html` |
-| SCR-A04 | 업무 생성·편집 | `designs/SCR-A04-task-form.html` |
-| SCR-A05 | 보고 검토 목록 | `designs/SCR-A05-report-list.html` |
-| SCR-A06 | 보고 상세 검토 | `designs/SCR-A06-report-review.html` |
-| SCR-A07 | 인력 관리 | `designs/SCR-A07-staff.html` |
-| SCR-A08 | 업무 아카이브 | `designs/SCR-A08-archive.html` |
+| SCR-A01 | 관리자 로그인 | `designs/SCR-A01 관리자로그인.html` |
+| SCR-A02 | 메인 대시보드 | `designs/SCR-A02 대시보드.html` |
+| SCR-A03 | 업무 목록 관리 | `designs/SCR-A03 업무목록관리.html` |
+| SCR-A04 | 업무 생성·편집 | `designs/SCR-A04 업무생성편집.html` |
+| SCR-A05 | 보고 검토 목록 | `designs/SCR-A05 보고검토목록.html` |
+| SCR-A06 | 보고 상세 검토 | `designs/SCR-A06 보고상세검토.html` |
+| SCR-A07 | 인력 관리 | `designs/SCR-A07 인력관리.html` |
+| SCR-A08 | 업무 아카이브 | `designs/SCR-A08 업무아카이브.html` |
+| SCR-A09 | 업무 요청 관리 | `designs/SCR-A09 업무요청관리.html` |
+
+> 파일명에 공백이 포함되어 있으므로 셸 명령에서는 경로를 따옴표로 감쌀 것.
 
 ---
 
@@ -157,7 +164,7 @@ transition: 150ms ease;
 
 ### 7.1 구현 순서 원칙
 1. **UI 먼저, API 나중** — 화면 전체를 더미 데이터로 완성 후 API 연결
-2. 직원 화면(E01→E06) 완성 후 관리자 화면(A01→A08) 진행
+2. 직원 화면(E01→E08) 완성 후 관리자 화면(A01→A09) 진행
 3. 각 화면 구현 전 반드시 해당 designs/ HTML 파일 확인
 
 ### 7.2 한국어 처리
@@ -166,10 +173,11 @@ transition: 150ms ease;
 - 날짜 형식: `YYYY년 MM월 DD일`, 시간: 24시간제 (`HH:MM`)
 - 문자열 정렬: 가나다 순
 
-### 7.3 SSE 구현 지침
-- 관리자 대시보드(SCR-A02) 및 보고 검토 목록(SCR-A05)에 SSE 연결
-- 연결 끊김 시 자동 재연결 로직 포함
-- UI에 연결 상태 표시 (`LIVE` 배지 — 연결 중 / 끊김 상태 구분)
+### 7.3 실시간 갱신 지침
+- SSE가 아닌 **TanStack Query 폴링**으로 구현 (예: 대시보드 `refetchInterval: 30_000`)
+- `refetchOnWindowFocus`는 전역 비활성화 상태 (`src/components/providers.tsx`) — 탭 복귀 시 세션 검증 요청 폭주로 인한 로그인 리다이렉트 방지 목적이므로 다시 켜지 말 것
+- 실시간 갱신이 필요한 화면은 개별 쿼리에 `refetchInterval` 지정
+- UI에 갱신 상태 표시 (`LIVE` 배지)
 
 ### 7.4 사진 업로드
 - 최대 5장, 파일당 최대 10MB
