@@ -197,7 +197,7 @@ transition: 150ms ease;
 > 화면 하나를 구현할 때 아래 형식으로 요청할 것.
 
 ```
-designs/SCR-[ID]-[name].html 파일을 읽고,
+"designs/SCR-[ID] [화면명].html" 파일을 읽고,
 이 디자인을 그대로 구현해줘.
 
 지금은 UI만 (더미 데이터 사용).
